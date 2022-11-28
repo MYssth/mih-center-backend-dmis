@@ -65,7 +65,17 @@ async function getTaskList(personnel_id, level_id) {
         console.log("getTaskList as " + level_id);
         let result;
         if (level_id === 'DMIS_IT' || level_id === 'DMIS_MT') {
-            result = await pool.request().input('level_id', sql.VarChar, level_id).query("SELECT * FROM dmis_tasks WHERE level_id = @level_id");
+            result = await pool.request().input('level_id', sql.VarChar, level_id).query("SELECT dmis_tasks.task_id, dmis_tasks.level_id, dmis_tasks.task_issue, "+
+            "dmis_tasks.task_date_start, dmis_tasks.status_id, dmis_task_status.status_name, dmis_tasks.informer_id, inf.personnel_firstname AS informer_name, "+
+            "dmis_tasks.issue_department_id, personnel_departments.department_name, dmis_tasks.receiver_id, rev.personnel_firstname AS receiver_firstname, "+
+            "dmis_tasks.operator_id, oper.personnel_firstname AS operator_name "+
+            "FROM dmis_tasks "+
+            "INNER JOIN personnel inf ON inf.personnel_id = dmis_tasks.informer_id "+
+            "LEFT JOIN personnel rev ON rev.personnel_id = dmis_tasks.receiver_id "+
+            "LEFT JOIN personnel oper ON oper.personnel_id = dmis_tasks.operator_id "+
+            "INNER JOIN dmis_task_status ON dmis_task_status.status_id = dmis_tasks.status_id "+
+            "INNER JOIN personnel_departments ON personnel_departments.department_id = dmis_tasks.issue_department_id "+
+            "WHERE level_id = @level_id AND dmis_tasks.status_id NOT IN (0,3)");
         }
         else if (level_id === 'DMIS_U1') {
             console.log("get personnel deparment id = " + personnel_id);
