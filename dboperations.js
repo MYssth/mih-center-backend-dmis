@@ -46,8 +46,38 @@ async function addTask(task) {
             .query("INSERT INTO dmis_tasks (task_id, level_id, task_issue, task_date_start, task_serialnumber, task_device_id, status_id, informer_id, issue_department_id)" +
                 "VALUES (@task_id, @level_id, @task_issue, GETDATE(), @task_serialnumber, @task_device_id, @status_id, @informer_id, @issue_department_id)");
         console.log("addTask complete");
-        console.log("====================");
-        return { "status": "ok" };
+
+        let token = "";
+
+        if (task.level_id === "DMIS_IT") {
+            token = "RcimIzmzqH8Xwhje8XpRWWK5FYFkMHMx8ARbPhCWjkU";
+        }
+        else if (task.level_id === "DMIS_MT") {
+            token = "eFkvLdfPbUsfHAI9UtHMbJlqH50ohjZJuhZlAQ5ykio";
+        }
+        const sendMessage = {"message":"มีการแจ้งซ่อมใหม่ที่แผนก"+task.department_name+" ปัญหาที่พบ: "+task.task_issue};
+
+        console.log("try to send message to line notify");
+        console.log("message = "+sendMessage.message);
+        fetch(`https://notify-api.line.me/api/notify`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Authorization': `Bearer ${token}`,
+            },
+            body: new URLSearchParams(sendMessage)
+        })
+            .then((response) => response.json())
+            .then((data) => {
+                console.log(data);
+                console.log("send data to line complete");
+                console.log("====================");
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+            });
+
+            return { "status": "ok" };
 
     }
     catch (error) {
@@ -192,10 +222,30 @@ async function completeTask(task) {
     }
 }
 
+async function getOperator(level_id){
+    try{
+        
+        console.log("getOperator call try connect to server");
+        let pool = await sql.connect(config);
+        console.log("connect complete");
+        const result = await pool.request().input('level_id', sql.VarChar, level_id).query("SELECT * FROM personnel_level_list "+
+        "INNER JOIN personnel ON personnel.personnel_id = personnel_level_list.personnel_id "+
+        "WHERE personnel_level_list.level_id = @level_id");
+        console.log("getOperator complete");
+        console.log("====================");
+        return result.recordsets;
+    }
+    catch(error){
+        console.error(error);
+        return { "status": "error", "message": error.message};
+    }
+}
+
 module.exports = {
     addTask: addTask,
     getTaskList: getTaskList,
     getTask: getTask,
     acceptTask: acceptTask,
     completeTask: completeTask,
+    getOperator: getOperator,
 }
