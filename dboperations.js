@@ -14,14 +14,17 @@ async function getNextTaskId(level_id) {
 }
 
 async function getPersonnelData(personnel_id) {
-    fetch(`http://localhost:5001/api/getpersonnel/${personnel_id}`)
+    console.log("let getPersonnelData");
+    const result = await fetch(`http://192.168.15.35:5001/api/getpersonnel/${personnel_id}`)
         .then((response) => response.json())
         .then((data) => {
-            return data.recordset[0];
+            console.log("getPersonnelData complete");
+            return data;
         })
         .catch((error) => {
             console.error('Error:', error);
         });
+    return result;
 }
 
 async function addTask(task) {
@@ -55,10 +58,10 @@ async function addTask(task) {
         else if (task.level_id === "DMIS_MT") {
             token = "eFkvLdfPbUsfHAI9UtHMbJlqH50ohjZJuhZlAQ5ykio";
         }
-        const sendMessage = {"message":"มีการแจ้งซ่อมใหม่ที่แผนก"+task.department_name+" ปัญหาที่พบ: "+task.task_issue};
+        const sendMessage = { "message": "มีการแจ้งซ่อมใหม่\nแผนก: " + task.department_name + "\nปัญหาที่พบ: " + task.task_issue };
 
         console.log("try to send message to line notify");
-        console.log("message = "+sendMessage.message);
+        console.log("message = " + sendMessage.message);
         fetch(`https://notify-api.line.me/api/notify`, {
             method: 'POST',
             headers: {
@@ -77,7 +80,7 @@ async function addTask(task) {
                 console.error('Error:', error);
             });
 
-            return { "status": "ok" };
+        return { "status": "ok" };
 
     }
     catch (error) {
@@ -94,42 +97,45 @@ async function getTaskList(personnel_id, level_id) {
         console.log("connect complete");
         console.log("getTaskList as " + level_id);
         let result;
+        let querytext = "SELECT dmis_tasks.task_id, dmis_tasks.level_id, dmis_tasks.task_issue, " +
+            "dmis_tasks.task_date_start, dmis_tasks.status_id, dmis_task_status.status_name, dmis_tasks.informer_id, inf.personnel_firstname AS informer_name, " +
+            "dmis_tasks.issue_department_id, personnel_departments.department_name, dmis_tasks.receiver_id, rev.personnel_firstname AS receiver_firstname, " +
+            "dmis_tasks.operator_id, oper.personnel_firstname AS operator_name, personnel_factions.faction_id " +
+            "FROM dmis_tasks " +
+            "INNER JOIN personnel inf ON inf.personnel_id = dmis_tasks.informer_id " +
+            "LEFT JOIN personnel rev ON rev.personnel_id = dmis_tasks.receiver_id " +
+            "LEFT JOIN personnel oper ON oper.personnel_id = dmis_tasks.operator_id " +
+            "INNER JOIN dmis_task_status ON dmis_task_status.status_id = dmis_tasks.status_id " +
+            "INNER JOIN personnel_departments ON personnel_departments.department_id = dmis_tasks.issue_department_id " +
+            "INNER JOIN personnel_factions ON personnel_factions.faction_id = personnel_departments.faction_id " +
+            "INNER JOIN personnel_fields ON personnel_fields.field_id = personnel_factions.field_id ";
+        const resData = await getPersonnelData(personnel_id);
         if (level_id === 'DMIS_IT' || level_id === 'DMIS_MT') {
-            result = await pool.request().input('level_id', sql.VarChar, level_id).query("SELECT dmis_tasks.task_id, dmis_tasks.level_id, dmis_tasks.task_issue, "+
-            "dmis_tasks.task_date_start, dmis_tasks.status_id, dmis_task_status.status_name, dmis_tasks.informer_id, inf.personnel_firstname AS informer_name, "+
-            "dmis_tasks.issue_department_id, personnel_departments.department_name, dmis_tasks.receiver_id, rev.personnel_firstname AS receiver_firstname, "+
-            "dmis_tasks.operator_id, oper.personnel_firstname AS operator_name "+
-            "FROM dmis_tasks "+
-            "INNER JOIN personnel inf ON inf.personnel_id = dmis_tasks.informer_id "+
-            "LEFT JOIN personnel rev ON rev.personnel_id = dmis_tasks.receiver_id "+
-            "LEFT JOIN personnel oper ON oper.personnel_id = dmis_tasks.operator_id "+
-            "INNER JOIN dmis_task_status ON dmis_task_status.status_id = dmis_tasks.status_id "+
-            "INNER JOIN personnel_departments ON personnel_departments.department_id = dmis_tasks.issue_department_id "+
-            "WHERE level_id = @level_id AND dmis_tasks.status_id NOT IN (0,3)");
+            console.log("level = " + level_id)
+            result = await pool.request().input('level_id', sql.VarChar, level_id).query(querytext + "WHERE level_id = @level_id AND dmis_tasks.status_id NOT IN (0,3)");
         }
         else if (level_id === 'DMIS_U1') {
-            console.log("get personnel deparment id = " + personnel_id);
-            const resData = getPersonnelData(personnel_id);
-            result = await pool.request().input('department_id', sql.Int, resData.departmentId).query("SELECT * FROM dmis_tasks WHERE issue_department_id = @department_id");
+            console.log("department id = " + resData.department_id);
+            result = await pool.request().input('department_id', sql.Int, resData.department_id).query(querytext +
+                "WHERE issue_department_id = @department_id AND dmis_tasks.status_id NOT IN (0,3) " +
+                "ORDER BY dmis_tasks.task_date_start");
         }
         else if (level_id === 'DMIS_U2') {
-            console.log("get personnel faction id = " + personnel_id);
-            const resData = getPersonnelData(personnel_id);
-            result = await pool.request().input('faction_id', sql.Int, resData.faction_id).query("SELECT * FROM dmis_tasks " +
-                "INNER JOIN personnel_departments ON personnel_departments.department_id = dmis_tasks.issue_department_id " +
-                "WHERE faction_id = @faction_id");
+            console.log("faction id = " + resData.faction_id);
+            result = await pool.request().input('faction_id', sql.Int, resData.faction_id).query(querytext +
+                "WHERE personnel_factions.faction_id = @faction_id AND dmis_tasks.status_id NOT IN (0,3) " +
+                "ORDER BY dmis_tasks.task_date_start");
 
         }
         else if (level_id === 'DMIS_U3') {
-            console.log("get personnel field id = " + personnel_id);
-            const resData = getPersonnelData(personnel_id);
-            result = await pool.request().input('field_id', sql.Int, resData.field_id).query("SELECT * FROM dmis_tasks " +
-                "INNER JOIN personnel_departments ON personnel_departments.department_id = dmis_tasks.issue_department_id " +
-                "INNER JOIN personnel_factions ON personnel_factions.faction_id = personnel_departments.faction_id " +
-                "WHERE field_id = @field_id");
+            console.log("field id = " + resData.field_id);
+            result = await pool.request().input('field_id', sql.Int, resData.field_id).query(querytext +
+                "WHERE personnel_fields.field_id = @field_id AND dmis_tasks.status_id NOT IN (0,3) " +
+                "ORDER BY dmis_tasks.task_date_start");
         }
         else if (level_id === 'DMIS_U4') {
-            result = await pool.request().query("SELECT * FROM dmis_tasks");
+            console.log("U4 activate");
+            result = await pool.request().query(querytext + "ORDER BY dmis_tasks.task_date_start");
         }
         console.log("getTaskList complete");
         console.log("====================");
@@ -171,11 +177,11 @@ async function acceptTask(task) {
             .input('level_id', sql.VarChar, task.level_id)
             .input('receiver_id', sql.VarChar, task.receiver_id)
             .input('operator_id', sql.VarChar, task.operator_id)
-            .query("UPDATE dmis_tasks SET "+
-            "receiver_id = @receiver_id, "+
-            "operator_id = @operator_id, "+
-            "status_id = 2 "+
-            "WHERE task_id = @task_id AND level_id = @level_id");
+            .query("UPDATE dmis_tasks SET " +
+                "receiver_id = @receiver_id, " +
+                "operator_id = @operator_id, " +
+                "status_id = 2 " +
+                "WHERE task_id = @task_id AND level_id = @level_id");
         console.log("acceptTask complete");
         console.log("====================");
         return { status: "ok" };
@@ -193,24 +199,24 @@ async function completeTask(task) {
         let pool = await sql.connect(config);
         console.log("connect complete");
         await pool.request()
-        .input('task_id', sql.Int, task.task_id)
-        .input('level_id', sql.VarChar, task.level_id)
-        .input('task_solution', sql.Text, task.task_solution)
-        .input('task_cost', sql.Int, task.task_cost)
-        .input('task_serialnumber', sql.VarChar, task.task_serialnumber)
-        .input('task_device_id', sql.VarChar, task.task_device_id)
-        .input('operator_id', sql.VarChar, task.operator_id)
-        .input('category_id', sql.TinyInt, task.category_id)
-        .query("UPDATE dmis_tasks SET "+
-        "task_solution = @task_solution, "+
-        "task_date_end = GETDATE(), "+
-        "task_cost = @task_cost, "+
-        "task_serialnumber = @task_serialnumber, "+
-        "task_device_id = @task_device_id, "+
-        "status_id = 3, "+
-        "operator_id = @operator_id, "+
-        "category_id = @category_id "+
-        "WHERE task_id = @task_id AND level_id = @level_id");
+            .input('task_id', sql.Int, task.task_id)
+            .input('level_id', sql.VarChar, task.level_id)
+            .input('task_solution', sql.Text, task.task_solution)
+            .input('task_cost', sql.Int, task.task_cost)
+            .input('task_serialnumber', sql.VarChar, task.task_serialnumber)
+            .input('task_device_id', sql.VarChar, task.task_device_id)
+            .input('operator_id', sql.VarChar, task.operator_id)
+            .input('category_id', sql.TinyInt, task.category_id)
+            .query("UPDATE dmis_tasks SET " +
+                "task_solution = @task_solution, " +
+                "task_date_end = GETDATE(), " +
+                "task_cost = @task_cost, " +
+                "task_serialnumber = @task_serialnumber, " +
+                "task_device_id = @task_device_id, " +
+                "status_id = 3, " +
+                "operator_id = @operator_id, " +
+                "category_id = @category_id " +
+                "WHERE task_id = @task_id AND level_id = @level_id");
         console.log("completeTask complete");
         console.log("====================");
         return { status: "ok" };
@@ -222,22 +228,41 @@ async function completeTask(task) {
     }
 }
 
-async function getOperator(level_id){
-    try{
-        
+async function getOperator(level_id) {
+    try {
+
         console.log("getOperator call try connect to server");
         let pool = await sql.connect(config);
         console.log("connect complete");
-        const result = await pool.request().input('level_id', sql.VarChar, level_id).query("SELECT * FROM personnel_level_list "+
-        "INNER JOIN personnel ON personnel.personnel_id = personnel_level_list.personnel_id "+
-        "WHERE personnel_level_list.level_id = @level_id");
+        const result = await pool.request().input('level_id', sql.VarChar, level_id)
+            .query("SELECT personnel.personnel_id, personnel.personnel_firstname, personnel.personnel_lastname FROM personnel " +
+                "INNER JOIN personnel_level_list ON personnel_level_list.personnel_id = personnel.personnel_id " +
+                "WHERE personnel_level_list.level_id = @level_id");
         console.log("getOperator complete");
         console.log("====================");
         return result.recordsets;
     }
-    catch(error){
+    catch (error) {
         console.error(error);
-        return { "status": "error", "message": error.message};
+        return { "status": "error", "message": error.message };
+    }
+}
+
+async function getCategories(level_id) {
+    try {
+
+        console.log("getCategories call try connect to server");
+        let pool = await sql.connect(config);
+        console.log("connect complete");
+        const result = await pool.request().input('level_id', sql.VarChar, level_id).query("SELECT * FROM dmis_task_categories WHERE level_id = @level_id");
+        console.log("getCategories complete");
+        console.log("====================");
+        return result.recordsets;
+
+    }
+    catch (error) {
+        console.error(error);
+        return { "status": "error", "message": error.message };
     }
 }
 
@@ -248,4 +273,5 @@ module.exports = {
     acceptTask: acceptTask,
     completeTask: completeTask,
     getOperator: getOperator,
+    getCategories: getCategories,
 }

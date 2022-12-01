@@ -95,6 +95,17 @@ router.route('/getoperator/:level_id').get((request, response) => {
     
 });
 
+router.route('/getcategories/:level_id').get((request, response) => {
+
+    dboperations.getCategories(request.params.level_id).then(result => {
+        response.json(result[0]);
+    }).catch(err => {
+        console.error(err);
+        response.setStatus(500);
+    });
+    
+});
+
 var port = process.env.PORT;
 app.listen(port);
 console.log('DMIS API is running at ' + port);
