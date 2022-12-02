@@ -1,16 +1,32 @@
 require('dotenv').config();
 var config = require('./dbconfig');
 const sql = require('mssql');
+const dateFns = require('date-fns');
 
 async function getNextTaskId(level_id) {
     let pool = await sql.connect(config);
     const result = await pool.request().input('level_id', sql.VarChar, level_id).query("SELECT TOP (1) task_id FROM dmis_tasks WHERE level_id = @level_id ORDER BY task_id DESC");
-    if (result.recordset.length === 0) {
-        console.log("next task id for " + level_id + " is 1");
-        return 1;
+
+    if (result.recordset.length !== 0) {
+        let tempYear = dateFns.format(dateFns.addYears(new Date(), 543), 'yy');
+        let tempMonth = dateFns.format(dateFns.addYears(new Date(), 543), 'MM');
+        console.log("last task_id = " + result.recordset[0].task_id);
+        let tempIdSplit = result.recordset[0].task_id.split("-");
+        console.log("year = " + tempIdSplit[0]);
+        console.log("month = " + tempIdSplit[1]);
+        let nextNum = parseInt(tempIdSplit[2]) + 1
+        console.log("next num = " + nextNum);
+
+        if (tempIdSplit[0] !== tempYear || tempIdSplit[1] !== tempMonth) {
+            return dateFns.format(dateFns.addYears(new Date(), 543), 'yy-MM-001');
+        }
+
+        return (tempYear + "-" + tempMonth + "-" + String(nextNum).padStart(3, '0'));
     }
-    console.log("next task id for " + level_id + " is " + (result.recordset[0].task_id + 1));
-    return result.recordset[0].task_id + 1;
+    else {
+        return dateFns.format(dateFns.addYears(new Date(), 543), 'yy-MM-001');
+    }
+
 }
 
 async function getPersonnelData(personnel_id) {
@@ -36,9 +52,10 @@ async function addTask(task) {
 
         console.log("get next task index");
         const taskId = await getNextTaskId(task.level_id);
+        console.log("new task index for "+task.level_id+" is "+taskId);
 
         await pool.request()
-            .input('task_id', sql.Int, taskId)
+            .input('task_id', sql.VarChar, taskId)
             .input('level_id', sql.VarChar, task.level_id)
             .input('task_issue', sql.Text, task.task_issue)
             .input('task_serialnumber', sql.VarChar, task.task_serialnumber)
@@ -58,7 +75,13 @@ async function addTask(task) {
         else if (task.level_id === "DMIS_MT") {
             token = "eFkvLdfPbUsfHAI9UtHMbJlqH50ohjZJuhZlAQ5ykio";
         }
-        const sendMessage = { "message": "มีการแจ้งซ่อมใหม่\nแผนก: " + task.department_name + "\nปัญหาที่พบ: " + task.task_issue };
+        let phoneNumber = "\nผู้แจ้งไม่ได้กรอกเบอร์ติดต่อ";
+        if (task.phoneNumber !== "") {
+            phoneNumber = "\nเบอร์โทรติดต่อ: " + task.phoneNumber;
+        }
+
+        const sendMessage = { "message": "มีการแจ้งซ่อมใหม่\nแผนก: " + task.department_name + "\nปัญหาที่พบ: " + task.task_issue + "" + phoneNumber };
+
 
         console.log("try to send message to line notify");
         console.log("message = " + sendMessage.message);
@@ -92,6 +115,7 @@ async function addTask(task) {
 async function getTaskList(personnel_id, level_id) {
 
     try {
+
         console.log("getTaskList call try to connect server");
         let pool = await sql.connect(config);
         console.log("connect complete");
@@ -112,30 +136,30 @@ async function getTaskList(personnel_id, level_id) {
         const resData = await getPersonnelData(personnel_id);
         if (level_id === 'DMIS_IT' || level_id === 'DMIS_MT') {
             console.log("level = " + level_id)
-            result = await pool.request().input('level_id', sql.VarChar, level_id).query(querytext + "WHERE level_id = @level_id AND dmis_tasks.status_id NOT IN (0,3)");
+            result = await pool.request().input('level_id', sql.VarChar, level_id).query(querytext + "WHERE level_id = @level_id AND dmis_tasks.status_id NOT IN (0,5)");
         }
         else if (level_id === 'DMIS_U1') {
             console.log("department id = " + resData.department_id);
             result = await pool.request().input('department_id', sql.Int, resData.department_id).query(querytext +
-                "WHERE issue_department_id = @department_id AND dmis_tasks.status_id NOT IN (0,3) " +
+                "WHERE issue_department_id = @department_id AND dmis_tasks.status_id NOT IN (0,5) " +
                 "ORDER BY dmis_tasks.task_date_start");
         }
         else if (level_id === 'DMIS_U2') {
             console.log("faction id = " + resData.faction_id);
             result = await pool.request().input('faction_id', sql.Int, resData.faction_id).query(querytext +
-                "WHERE personnel_factions.faction_id = @faction_id AND dmis_tasks.status_id NOT IN (0,3) " +
+                "WHERE personnel_factions.faction_id = @faction_id AND dmis_tasks.status_id NOT IN (0,5) " +
                 "ORDER BY dmis_tasks.task_date_start");
 
         }
         else if (level_id === 'DMIS_U3') {
             console.log("field id = " + resData.field_id);
             result = await pool.request().input('field_id', sql.Int, resData.field_id).query(querytext +
-                "WHERE personnel_fields.field_id = @field_id AND dmis_tasks.status_id NOT IN (0,3) " +
+                "WHERE personnel_fields.field_id = @field_id AND dmis_tasks.status_id NOT IN (0,5) " +
                 "ORDER BY dmis_tasks.task_date_start");
         }
         else if (level_id === 'DMIS_U4') {
             console.log("U4 activate");
-            result = await pool.request().query(querytext + "ORDER BY dmis_tasks.task_date_start");
+            result = await pool.request().query(querytext + "WHERE dmis_tasks.status_id NOT IN (0,5) ORDER BY dmis_tasks.task_date_start");
         }
         console.log("getTaskList complete");
         console.log("====================");
