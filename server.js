@@ -49,6 +49,17 @@ router.route('/gettasklist/:personnel_id/:level_id').get((request, response) => 
 
 });
 
+router.route('/getcompletetasklist/:personnel_id/:level_id').get((request, response) => {
+
+    dboperations.getCompleteTaskList(request.params.personnel_id, request.params.level_id).then(result => {
+        response.json(result[0]);
+    }).catch(err => {
+        console.error(err);
+        response.sendStatus(500);
+    });
+
+});
+
 router.route('/gettask/:task_id/:level_id').get((request, response) => {
 
     dboperations.getTask(request.params.task_id, request.params.level_id).then(result => {
@@ -72,10 +83,10 @@ router.route('/accepttask').post((request, response) => {
 
 });
 
-router.route('/completetask').post((request, response) => {
+router.route('/processtask').post((request, response) => {
 
     let task = { ...request.body };
-    dboperations.completeTask(task).then(result => {
+    dboperations.processTask(task).then(result => {
         response.status(201).json(result);
     }).catch(err => {
         console.error(err);
@@ -98,6 +109,28 @@ router.route('/getoperator/:level_id').get((request, response) => {
 router.route('/getcategories/:level_id').get((request, response) => {
 
     dboperations.getCategories(request.params.level_id).then(result => {
+        response.json(result[0]);
+    }).catch(err => {
+        console.error(err);
+        response.setStatus(500);
+    });
+    
+});
+
+router.route('/getstatus').get((request, response) => {
+
+    dboperations.getStatus().then(result => {
+        response.json(result[0]);
+    }).catch(err => {
+        console.error(err);
+        response.setStatus(500);
+    });
+    
+});
+
+router.route('/counttask/:personnel_id/:level_id').get((request, response) => {
+
+    dboperations.countTask(request.params.personnel_id, request.params.level_id).then(result => {
         response.json(result[0]);
     }).catch(err => {
         console.error(err);
