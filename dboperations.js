@@ -3,6 +3,50 @@ var config = require('./dbconfig');
 const sql = require('mssql');
 const dateFns = require('date-fns');
 
+const TaskListQueryText = "SELECT ROW_NUMBER() OVER (ORDER BY dmis_tasks.task_id DESC) AS id, " +
+    "dmis_tasks.task_id, " +
+    "dmis_tasks.level_id, " +
+    "dmis_tasks.task_issue, " +
+    "dmis_tasks.task_solution, " +
+    "dmis_tasks.task_date_start, " +
+    "dmis_tasks.task_date_end, " +
+    "dmis_tasks.task_cost, " +
+    "dmis_tasks.task_serialnumber, " +
+    "dmis_tasks.task_device_id, " +
+    "dmis_tasks.task_phone_no, " +
+    "dmis_tasks.task_note, " +
+    "dmis_tasks.status_id, " +
+    "dmis_task_status.status_name, " +
+    "dmis_tasks.informer_id, " +
+    "inf.personnel_firstname AS informer_firstname, " +
+    "inf.personnel_lastname AS informer_lastname, " +
+    "inf_pos.position_name AS informer_position_name, " +
+    "inf_dpm.department_name AS informer_department_name, " +
+    "inf_fac.faction_name AS informer_faction_name, " +
+    "dmis_tasks.issue_department_id, " +
+    "personnel_departments.department_name AS issue_department_name, " +
+    "dmis_tasks.receiver_id, " +
+    "rev.personnel_firstname AS receiver_firstname, " +
+    "rev.personnel_lastname AS receiver_lastname, " +
+    "dmis_tasks.operator_id, " +
+    "oper.personnel_firstname AS operator_firstname, " +
+    "oper.personnel_lastname AS operator_lastname, " +
+    "dmis_tasks.category_id, " +
+    "dmis_task_categories.category_name, " +
+    "personnel_factions.faction_id " +
+    "FROM dmis_tasks " +
+    "INNER JOIN personnel inf ON inf.personnel_id = dmis_tasks.informer_id " +
+    "LEFT JOIN personnel_positions inf_pos ON inf_pos.position_id = inf.position_id " +
+    "LEFT JOIN personnel_departments inf_dpm ON inf_dpm.department_id = inf_pos.department_id " +
+    "LEFT JOIN personnel_factions inf_fac ON inf_fac.faction_id = inf_dpm.faction_id " +
+    "LEFT JOIN personnel rev ON rev.personnel_id = dmis_tasks.receiver_id " +
+    "LEFT JOIN personnel oper ON oper.personnel_id = dmis_tasks.operator_id " +
+    "LEFT JOIN dmis_task_status ON dmis_task_status.status_id = dmis_tasks.status_id " +
+    "LEFT JOIN personnel_departments ON personnel_departments.department_id = dmis_tasks.issue_department_id " +
+    "LEFT JOIN personnel_factions ON personnel_factions.faction_id = personnel_departments.faction_id " +
+    "LEFT JOIN personnel_fields ON personnel_fields.field_id = personnel_factions.field_id " +
+    "LEFT JOIN dmis_task_categories ON dmis_task_categories.category_id = dmis_tasks.category_id ";
+
 async function getNextTaskId(level_id) {
     let pool = await sql.connect(config);
     const result = await pool.request().input('level_id', sql.VarChar, level_id).query("SELECT TOP (1) task_id FROM dmis_tasks WHERE level_id = @level_id ORDER BY task_id DESC");
@@ -121,45 +165,33 @@ async function getTaskList(personnel_id, level_id) {
         console.log("connect complete");
         console.log("getTaskList as " + level_id);
         let result;
-        let queryText = "SELECT dmis_tasks.task_id, dmis_tasks.level_id, dmis_tasks.task_issue, " +
-            "dmis_tasks.task_date_start, dmis_tasks.status_id, dmis_task_status.status_name, dmis_tasks.informer_id, inf.personnel_firstname AS informer_name, " +
-            "dmis_tasks.issue_department_id, personnel_departments.department_name, dmis_tasks.receiver_id, rev.personnel_firstname AS receiver_firstname, " +
-            "dmis_tasks.operator_id, oper.personnel_firstname AS operator_name, personnel_factions.faction_id " +
-            "FROM dmis_tasks " +
-            "INNER JOIN personnel inf ON inf.personnel_id = dmis_tasks.informer_id " +
-            "LEFT JOIN personnel rev ON rev.personnel_id = dmis_tasks.receiver_id " +
-            "LEFT JOIN personnel oper ON oper.personnel_id = dmis_tasks.operator_id " +
-            "INNER JOIN dmis_task_status ON dmis_task_status.status_id = dmis_tasks.status_id " +
-            "INNER JOIN personnel_departments ON personnel_departments.department_id = dmis_tasks.issue_department_id " +
-            "INNER JOIN personnel_factions ON personnel_factions.faction_id = personnel_departments.faction_id " +
-            "INNER JOIN personnel_fields ON personnel_fields.field_id = personnel_factions.field_id ";
         const resData = await getPersonnelData(personnel_id);
         if (level_id === 'DMIS_IT' || level_id === 'DMIS_MT') {
             console.log("level = " + level_id)
-            result = await pool.request().input('level_id', sql.VarChar, level_id).query(queryText + "WHERE level_id = @level_id AND dmis_tasks.status_id NOT IN (0,5)");
+            result = await pool.request().input('level_id', sql.VarChar, level_id).query(TaskListQueryText + "WHERE dmis_tasks.level_id = @level_id AND dmis_tasks.status_id NOT IN (0,5)");
         }
         else if (level_id === 'DMIS_U1') {
             console.log("department id = " + resData.department_id);
-            result = await pool.request().input('department_id', sql.Int, resData.department_id).query(queryText +
-                "WHERE issue_department_id = @department_id AND dmis_tasks.status_id NOT IN (0,5) " +
+            result = await pool.request().input('department_id', sql.Int, resData.department_id).query(TaskListQueryText +
+                "WHERE dmis_tasks.issue_department_id = @department_id AND dmis_tasks.status_id NOT IN (0,5) " +
                 "ORDER BY dmis_tasks.task_date_start");
         }
         else if (level_id === 'DMIS_U2') {
             console.log("faction id = " + resData.faction_id);
-            result = await pool.request().input('faction_id', sql.Int, resData.faction_id).query(queryText +
+            result = await pool.request().input('faction_id', sql.Int, resData.faction_id).query(TaskListQueryText +
                 "WHERE personnel_factions.faction_id = @faction_id AND dmis_tasks.status_id NOT IN (0,5) " +
                 "ORDER BY dmis_tasks.task_date_start");
 
         }
         else if (level_id === 'DMIS_U3') {
             console.log("field id = " + resData.field_id);
-            result = await pool.request().input('field_id', sql.Int, resData.field_id).query(queryText +
+            result = await pool.request().input('field_id', sql.Int, resData.field_id).query(TaskListQueryText +
                 "WHERE personnel_fields.field_id = @field_id AND dmis_tasks.status_id NOT IN (0,5) " +
                 "ORDER BY dmis_tasks.task_date_start");
         }
         else if (level_id === 'DMIS_U4') {
             console.log("U4 activate");
-            result = await pool.request().query(queryText + "WHERE dmis_tasks.status_id NOT IN (0,5) ORDER BY dmis_tasks.task_date_start");
+            result = await pool.request().query(TaskListQueryText + "WHERE dmis_tasks.status_id NOT IN (0,5) ORDER BY dmis_tasks.task_date_start");
         }
         console.log("getTaskList complete");
         console.log("====================");
@@ -179,49 +211,83 @@ async function getCompleteTaskList(personnel_id, level_id) {
         let pool = await sql.connect(config);
         console.log("connect complete");
         let result;
-        let queryText = "SELECT dmis_tasks.task_id, dmis_tasks.level_id, dmis_tasks.task_issue, " +
-            "dmis_tasks.task_date_start, dmis_tasks.status_id, dmis_task_status.status_name, dmis_tasks.informer_id, inf.personnel_firstname AS informer_name, " +
-            "dmis_tasks.issue_department_id, personnel_departments.department_name, dmis_tasks.receiver_id, rev.personnel_firstname AS receiver_firstname, " +
-            "dmis_tasks.operator_id, oper.personnel_firstname AS operator_name, personnel_factions.faction_id " +
-            "FROM dmis_tasks " +
-            "INNER JOIN personnel inf ON inf.personnel_id = dmis_tasks.informer_id " +
-            "LEFT JOIN personnel rev ON rev.personnel_id = dmis_tasks.receiver_id " +
-            "LEFT JOIN personnel oper ON oper.personnel_id = dmis_tasks.operator_id " +
-            "INNER JOIN dmis_task_status ON dmis_task_status.status_id = dmis_tasks.status_id " +
-            "INNER JOIN personnel_departments ON personnel_departments.department_id = dmis_tasks.issue_department_id " +
-            "INNER JOIN personnel_factions ON personnel_factions.faction_id = personnel_departments.faction_id " +
-            "INNER JOIN personnel_fields ON personnel_fields.field_id = personnel_factions.field_id ";
-
         const resData = await getPersonnelData(personnel_id);
         if (level_id === 'DMIS_IT' || level_id === 'DMIS_MT') {
             console.log("level = " + level_id)
-            result = await pool.request().input('level_id', sql.VarChar, level_id).query(queryText + "WHERE level_id = @level_id AND dmis_tasks.status_id IN (0,5) ORDER BY dmis_tasks.task_id DESC");
+            result = await pool.request().input('level_id', sql.VarChar, level_id).query(TaskListQueryText + "WHERE dmis_tasks.level_id = @level_id AND dmis_tasks.status_id IN (0,5) ORDER BY dmis_tasks.task_id DESC");
         }
         else if (level_id === 'DMIS_U1') {
             console.log("department id = " + resData.department_id);
-            result = await pool.request().input('department_id', sql.Int, resData.department_id).query(queryText +
-                "WHERE issue_department_id = @department_id AND dmis_tasks.status_id IN (0,5) " +
+            result = await pool.request().input('department_id', sql.Int, resData.department_id).query(TaskListQueryText +
+                "WHERE dmis_tasks.issue_department_id = @department_id AND dmis_tasks.status_id IN (0,5) " +
                 "ORDER BY dmis_tasks.task_id DESC");
         }
         else if (level_id === 'DMIS_U2') {
             console.log("faction id = " + resData.faction_id);
-            result = await pool.request().input('faction_id', sql.Int, resData.faction_id).query(queryText +
+            result = await pool.request().input('faction_id', sql.Int, resData.faction_id).query(TaskListQueryText +
                 "WHERE personnel_factions.faction_id = @faction_id AND dmis_tasks.status_id IN (0,5) " +
                 "ORDER BY dmis_tasks.task_id DESC");
 
         }
         else if (level_id === 'DMIS_U3') {
             console.log("field id = " + resData.field_id);
-            result = await pool.request().input('field_id', sql.Int, resData.field_id).query(queryText +
+            result = await pool.request().input('field_id', sql.Int, resData.field_id).query(TaskListQueryText +
                 "WHERE personnel_fields.field_id = @field_id AND dmis_tasks.status_id IN (0,5) " +
                 "ORDER BY dmis_tasks.task_id DESC");
         }
         else if (level_id === 'DMIS_U4') {
             console.log("U4 activate");
-            result = await pool.request().query(queryText + "WHERE dmis_tasks.status_id IN (0,5) ORDER BY dmis_tasks.task_id DESC");
+            result = await pool.request().query(TaskListQueryText + "WHERE dmis_tasks.status_id IN (0,5) ORDER BY dmis_tasks.task_id DESC");
         }
 
         console.log("getCompleteTaskList complete");
+        console.log("====================");
+        return result.recordsets;
+
+    }
+    catch (error) {
+        console.error(error);
+        return { "status": "error", "message": error.message };
+    }
+}
+
+async function getAllTaskList(personnel_id, level_id) {
+    try {
+
+        console.log("getAllTaskList call try connect to server");
+        let pool = await sql.connect(config);
+        console.log("connect complete");
+        let result;
+        const resData = await getPersonnelData(personnel_id);
+        if (level_id === 'DMIS_IT' || level_id === 'DMIS_MT') {
+            console.log("level = " + level_id)
+            result = await pool.request().input('level_id', sql.VarChar, level_id).query(TaskListQueryText + "WHERE dmis_tasks.level_id = @level_id ORDER BY dmis_tasks.task_id DESC");
+        }
+        else if (level_id === 'DMIS_U1') {
+            console.log("department id = " + resData.department_id);
+            result = await pool.request().input('department_id', sql.Int, resData.department_id).query(TaskListQueryText +
+                "WHERE dmis_tasks.issue_department_id = @department_id " +
+                "ORDER BY dmis_tasks.task_id DESC");
+        }
+        else if (level_id === 'DMIS_U2') {
+            console.log("faction id = " + resData.faction_id);
+            result = await pool.request().input('faction_id', sql.Int, resData.faction_id).query(TaskListQueryText +
+                "WHERE personnel_factions.faction_id = @faction_id " +
+                "ORDER BY dmis_tasks.task_id DESC");
+
+        }
+        else if (level_id === 'DMIS_U3') {
+            console.log("field id = " + resData.field_id);
+            result = await pool.request().input('field_id', sql.Int, resData.field_id).query(TaskListQueryText +
+                "WHERE personnel_fields.field_id = @field_id " +
+                "ORDER BY dmis_tasks.task_id DESC");
+        }
+        else if (level_id === 'DMIS_U4') {
+            console.log("U4 activate");
+            result = await pool.request().query(TaskListQueryText + "ORDER BY dmis_tasks.task_id DESC");
+        }
+
+        console.log("getAllTaskList complete");
         console.log("====================");
         return result.recordsets;
 
@@ -388,19 +454,19 @@ async function countTask(personnel_id, level_id) {
         console.log("connect complete");
         let result;
         let queryText = "SELECT COUNT(CASE WHEN dmis_tasks.status_id = 0 then 1 END) AS 'cancel', " +
-                "COUNT(CASE WHEN dmis_tasks.status_id = 1 then 1 END) AS 'inform', " +
-                "COUNT(CASE WHEN dmis_tasks.status_id = 2 then 1 END) AS 'accept', " +
-                "COUNT(CASE WHEN dmis_tasks.status_id = 3 then 1 END) AS 'wait', " +
-                "COUNT(CASE WHEN dmis_tasks.status_id = 4 then 1 END) AS 'outside', " +
-                "COUNT(CASE WHEN dmis_tasks.status_id = 5 then 1 END) AS 'complete' " +
-                "FROM dmis_tasks " +
-                "INNER JOIN personnel inf ON inf.personnel_id = dmis_tasks.informer_id " +
-                "LEFT JOIN personnel rev ON rev.personnel_id = dmis_tasks.receiver_id " +
-                "LEFT JOIN personnel oper ON oper.personnel_id = dmis_tasks.operator_id " +
-                "INNER JOIN dmis_task_status ON dmis_task_status.status_id = dmis_tasks.status_id " +
-                "INNER JOIN personnel_departments ON personnel_departments.department_id = dmis_tasks.issue_department_id " +
-                "INNER JOIN personnel_factions ON personnel_factions.faction_id = personnel_departments.faction_id " +
-                "INNER JOIN personnel_fields ON personnel_fields.field_id = personnel_factions.field_id ";
+            "COUNT(CASE WHEN dmis_tasks.status_id = 1 then 1 END) AS 'inform', " +
+            "COUNT(CASE WHEN dmis_tasks.status_id = 2 then 1 END) AS 'accept', " +
+            "COUNT(CASE WHEN dmis_tasks.status_id = 3 then 1 END) AS 'wait', " +
+            "COUNT(CASE WHEN dmis_tasks.status_id = 4 then 1 END) AS 'outside', " +
+            "COUNT(CASE WHEN dmis_tasks.status_id = 5 then 1 END) AS 'complete' " +
+            "FROM dmis_tasks " +
+            "INNER JOIN personnel inf ON inf.personnel_id = dmis_tasks.informer_id " +
+            "LEFT JOIN personnel rev ON rev.personnel_id = dmis_tasks.receiver_id " +
+            "LEFT JOIN personnel oper ON oper.personnel_id = dmis_tasks.operator_id " +
+            "INNER JOIN dmis_task_status ON dmis_task_status.status_id = dmis_tasks.status_id " +
+            "INNER JOIN personnel_departments ON personnel_departments.department_id = dmis_tasks.issue_department_id " +
+            "INNER JOIN personnel_factions ON personnel_factions.faction_id = personnel_departments.faction_id " +
+            "INNER JOIN personnel_fields ON personnel_fields.field_id = personnel_factions.field_id ";
 
 
         const resData = await getPersonnelData(personnel_id);
@@ -445,6 +511,7 @@ module.exports = {
     addTask: addTask,
     getTaskList: getTaskList,
     getCompleteTaskList: getCompleteTaskList,
+    getAllTaskList: getAllTaskList,
     getTask: getTask,
     acceptTask: acceptTask,
     processTask: processTask,

@@ -60,6 +60,17 @@ router.route('/getcompletetasklist/:personnel_id/:level_id').get((request, respo
 
 });
 
+router.route('/getalltasklist/:personnel_id/:level_id').get((request, response) => {
+
+    dboperations.getAllTaskList(request.params.personnel_id, request.params.level_id).then(result => {
+        response.json(result[0]);
+    }).catch(err => {
+        console.error(err);
+        response.sendStatus(500);
+    });
+
+});
+
 router.route('/gettask/:task_id/:level_id').get((request, response) => {
 
     dboperations.getTask(request.params.task_id, request.params.level_id).then(result => {
