@@ -307,9 +307,10 @@ async function getTask(task_id, level_id) {
         const result = await pool.request().input('task_id', sql.VarChar, task_id).input('level_id', sql.VarChar, level_id).query("SELECT dmis_tasks.task_id, dmis_tasks.level_id, " +
             "dmis_tasks.task_issue, dmis_tasks.task_solution, dmis_tasks.task_date_start, dmis_tasks.task_date_end, dmis_tasks.task_cost, dmis_tasks.task_serialnumber, " +
             "dmis_tasks.task_device_id, dmis_tasks.task_phone_no, dmis_tasks.task_note, dmis_tasks.status_id, dmis_tasks.informer_id, dmis_tasks.issue_department_id, " +
-            "dmis_tasks.receiver_id, dmis_tasks.operator_id, dmis_tasks.category_id, dmis_task_status.status_name FROM dmis_tasks " +
+            "dmis_tasks.receiver_id, dmis_tasks.operator_id, dmis_tasks.category_id, dmis_task_categories.category_name, dmis_task_status.status_name FROM dmis_tasks " +
             "INNER JOIN dmis_task_status ON dmis_task_status.status_id = dmis_tasks.status_id " +
-            "WHERE task_id = @task_id AND level_id = @level_id");
+            "LEFT JOIN dmis_task_categories ON dmis_task_categories.category_id = dmis_tasks.category_id " +
+            "WHERE dmis_tasks.task_id = @task_id AND dmis_tasks.level_id = @level_id");
         console.log("getTask complete");
         console.log("====================");
         return result.recordset;
@@ -482,19 +483,17 @@ async function countTask(personnel_id, level_id) {
         else if (level_id === 'DMIS_U2') {
             console.log("faction id = " + resData.faction_id);
             result = await pool.request().input('faction_id', sql.Int, resData.faction_id).query(queryText +
-                "WHERE personnel_factions.faction_id = @faction_id " +
-                "ORDER BY dmis_tasks.task_date_start");
+                "WHERE personnel_factions.faction_id = @faction_id ");
 
         }
         else if (level_id === 'DMIS_U3') {
             console.log("field id = " + resData.field_id);
             result = await pool.request().input('field_id', sql.Int, resData.field_id).query(queryText +
-                "WHERE personnel_fields.field_id = @field_id " +
-                "ORDER BY dmis_tasks.task_date_start");
+                "WHERE personnel_fields.field_id = @field_id ");
         }
         else if (level_id === 'DMIS_U4') {
             console.log("U4 activate");
-            result = await pool.request().query(queryText + "ORDER BY dmis_tasks.task_date_start");
+            result = await pool.request().query(queryText);
         }
 
         console.log("countTask complete");
