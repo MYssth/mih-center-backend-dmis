@@ -38,9 +38,9 @@ router.route('/addtask').post((request, response) => {
 
 });
 
-router.route('/gettasklist/:personnel_id/:level_id').get((request, response) => {
+router.route('/gettasklist/:personnel_id/:level_id/:showcase').get((request, response) => {
 
-    dboperations.getTaskList(request.params.personnel_id, request.params.level_id).then(result => {
+    dboperations.getTaskList(request.params.personnel_id, request.params.level_id, request.params.showcase).then(result => {
         response.json(result[0]);
     }).catch(err => {
         console.error(err);
@@ -49,9 +49,9 @@ router.route('/gettasklist/:personnel_id/:level_id').get((request, response) => 
 
 });
 
-router.route('/getcompletetasklist/:personnel_id/:level_id').get((request, response) => {
+router.route('/getcompletetasklist/:personnel_id/:level_id/:showcase').get((request, response) => {
 
-    dboperations.getCompleteTaskList(request.params.personnel_id, request.params.level_id).then(result => {
+    dboperations.getCompleteTaskList(request.params.personnel_id, request.params.level_id, request.params.showcase).then(result => {
         response.json(result[0]);
     }).catch(err => {
         console.error(err);
@@ -139,9 +139,9 @@ router.route('/getstatus').get((request, response) => {
     
 });
 
-router.route('/counttask/:personnel_id/:level_id').get((request, response) => {
+router.route('/counttask/:personnel_id/:level_id/:showcase').get((request, response) => {
 
-    dboperations.countTask(request.params.personnel_id, request.params.level_id).then(result => {
+    dboperations.countTask(request.params.personnel_id, request.params.level_id, request.params.showcase).then(result => {
         response.json(result[0]);
     }).catch(err => {
         console.error(err);
