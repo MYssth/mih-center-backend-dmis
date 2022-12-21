@@ -169,17 +169,26 @@ async function getTaskList(personnel_id, level_id, showcase) {
         const resData = await getPersonnelData(personnel_id);
         if (level_id === 'DMIS_IT' || level_id === 'DMIS_MT') {
             if (showcase === "false") {
-                console.log("level = " + level_id + " not showcase")
+                console.log("level = " + level_id + " not showcase");
                 result = await pool.request()
                     .input('level_id', sql.VarChar, level_id)
                     .query(TaskListQueryText + "WHERE dmis_tasks.level_id = @level_id AND dmis_tasks.status_id NOT IN (0,5) ");
             }
             else {
-                console.log("level = " + level_id + " showcase")
-                result = await pool.request()
-                    .input('informer_id', sql.VarChar, personnel_id)
-                    .input('department_id', sql.Int, resData.department_id)
-                    .query(TaskListQueryText + "WHERE dmis_tasks.issue_department_id = @department_id AND dmis_tasks.status_id NOT IN (0,5) OR dmis_tasks.informer_id = @informer_id AND dmis_tasks.status_id NOT IN (0,5) ");
+                console.log("level = " + level_id + " showcase");
+                console.log("department = " + resData.department_id);
+                // check case user is head of IT
+                if (resData.department_id === 48) {
+                    result = await pool.request()
+                        .input('informer_id', sql.VarChar, personnel_id)
+                        .query(TaskListQueryText + "WHERE dmis_tasks.issue_department_id = '47' AND dmis_tasks.status_id NOT IN (0,5) OR dmis_tasks.informer_id = @informer_id AND dmis_tasks.status_id NOT IN (0,5) ");
+                }
+                else {
+                    result = await pool.request()
+                        .input('informer_id', sql.VarChar, personnel_id)
+                        .input('department_id', sql.Int, resData.department_id)
+                        .query(TaskListQueryText + "WHERE dmis_tasks.issue_department_id = @department_id AND dmis_tasks.status_id NOT IN (0,5) OR dmis_tasks.informer_id = @informer_id AND dmis_tasks.status_id NOT IN (0,5) ");
+                }
             }
         }
         else if (level_id === 'DMIS_U1') {
@@ -242,10 +251,19 @@ async function getCompleteTaskList(personnel_id, level_id, showcase) {
             }
             else {
                 console.log("level = " + level_id + " showcase");
-                result = await pool.request()
-                    .input('informer_id', sql.VarChar, personnel_id)
-                    .input('department_id', sql.Int, resData.department_id)
-                    .query(TaskListQueryText + "WHERE dmis_tasks.issue_department_id = @department_id AND dmis_tasks.status_id IN (0,5) OR dmis_tasks.informer_id = @informer_id AND dmis_tasks.status_id IN (0,5) ");
+                console.log("department = " + resData.department_id);
+                // check case user is head of IT
+                if (resData.department_id === 48) {
+                    result = await pool.request()
+                        .input('informer_id', sql.VarChar, personnel_id)
+                        .query(TaskListQueryText + "WHERE dmis_tasks.issue_department_id = '47' AND dmis_tasks.status_id IN (0,5) OR dmis_tasks.informer_id = @informer_id AND dmis_tasks.status_id IN (0,5) ");
+                }
+                else {
+                    result = await pool.request()
+                        .input('informer_id', sql.VarChar, personnel_id)
+                        .input('department_id', sql.Int, resData.department_id)
+                        .query(TaskListQueryText + "WHERE dmis_tasks.issue_department_id = @department_id AND dmis_tasks.status_id IN (0,5) OR dmis_tasks.informer_id = @informer_id AND dmis_tasks.status_id IN (0,5) ");
+                }
             }
         }
         else if (level_id === 'DMIS_U1') {
@@ -567,41 +585,50 @@ async function countTask(personnel_id, level_id, showcase) {
             if (showcase === "false") {
                 console.log("level_id = " + level_id + "not showcase");
                 result = await pool.request()
-                .input('level_id', sql.VarChar, level_id)
-                .query(queryText + "WHERE dmis_tasks.level_id = @level_id");
+                    .input('level_id', sql.VarChar, level_id)
+                    .query(queryText + "WHERE dmis_tasks.level_id = @level_id");
             }
             else {
                 console.log("level_id = " + level_id + " showcase");
+                console.log("department = " + resData.department_id);
+                // check case user is head of IT
+                if (resData.department_id === 48) {
                 result = await pool.request()
-                .input('informer_id', sql.VarChar, personnel_id)
-                .input('department_id', sql.Int, resData.department_id)
-                .query(queryText + "WHERE dmis_tasks.issue_department_id = @department_id OR dmis_tasks.informer_id = @informer_id ");
+                    .input('informer_id', sql.VarChar, personnel_id)
+                    .query(queryText + "WHERE dmis_tasks.issue_department_id = '47' OR dmis_tasks.informer_id = @informer_id ");
+                }
+                else{
+                    result = await pool.request()
+                    .input('informer_id', sql.VarChar, personnel_id)
+                    .input('department_id', sql.Int, resData.department_id)
+                    .query(queryText + "WHERE dmis_tasks.issue_department_id = @department_id OR dmis_tasks.informer_id = @informer_id ");
+                }
             }
         }
         else if (level_id === 'DMIS_U1') {
             console.log("department id = " + resData.department_id);
             result = await pool.request()
-            .input('department_id', sql.Int, resData.department_id)
-            .input('informer_id', sql.VarChar, personnel_id)
-            .query(queryText +
-                "WHERE dmis_tasks.issue_department_id = @department_id OR dmis_tasks.informer_id = @informer_id ");
+                .input('department_id', sql.Int, resData.department_id)
+                .input('informer_id', sql.VarChar, personnel_id)
+                .query(queryText +
+                    "WHERE dmis_tasks.issue_department_id = @department_id OR dmis_tasks.informer_id = @informer_id ");
         }
         else if (level_id === 'DMIS_U2') {
             console.log("faction id = " + resData.faction_id);
             result = await pool.request()
-            .input('faction_id', sql.Int, resData.faction_id)
-            .input('informer_id', sql.VarChar, personnel_id)
-            .query(queryText +
-                "WHERE personnel_factions.faction_id = @faction_id OR dmis_tasks.informer_id = @informer_id ");
+                .input('faction_id', sql.Int, resData.faction_id)
+                .input('informer_id', sql.VarChar, personnel_id)
+                .query(queryText +
+                    "WHERE personnel_factions.faction_id = @faction_id OR dmis_tasks.informer_id = @informer_id ");
 
         }
         else if (level_id === 'DMIS_U3') {
             console.log("field id = " + resData.field_id);
             result = await pool.request()
-            .input('field_id', sql.Int, resData.field_id)
-            .input('informer_id', sql.VarChar, personnel_id)
-            .query(queryText +
-                "WHERE personnel_fields.field_id = @field_id OR dmis_tasks.informer_id = @informer_id ");
+                .input('field_id', sql.Int, resData.field_id)
+                .input('informer_id', sql.VarChar, personnel_id)
+                .query(queryText +
+                    "WHERE personnel_fields.field_id = @field_id OR dmis_tasks.informer_id = @informer_id ");
         }
         else if (level_id === 'DMIS_U4') {
             console.log("U4 activate");
