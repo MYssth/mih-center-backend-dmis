@@ -77,15 +77,23 @@ async function getNextTaskId(level_id) {
 
 async function getPersonnelData(personnel_id) {
     console.log("let getPersonnelData");
-    const result = await fetch(`http://${process.env.prodHost}:${process.env.psnDataDistPort}/api/getpersonnel/${personnel_id}`)
+    const controller = new AbortController();
+    const signal = controller.signal;
+    const result = await fetch(`http://${process.env.backendHost}:${process.env.psnDataDistPort}/api/getpersonnel/${personnel_id}`, { signal })
         .then((response) => response.json())
         .then((data) => {
             console.log("getPersonnelData complete");
             return data;
         })
         .catch((error) => {
-            console.error('Error:', error);
+            if (error.name === "AbortError") {
+                console.log("cancelled");
+            }
+            else {
+                console.error('Error:', error);
+            }
         });
+    controller.abort();
     return result;
 }
 
@@ -119,10 +127,10 @@ async function addTask(task) {
             token = process.env.DMIS_IT_lineToken;
         }
         else if (task.level_id === "DMIS_MT") {
-            token = process.env.DMIS_MT_lineToken_TEST;
+            token = process.env.DMIS_MT_lineToken;
         }
         else if (task.level_id === "DMIS_MER") {
-            token = process.env.DMIS_MER_lineToken_TEST;
+            token = process.env.DMIS_MER_lineToken;
         }
         let phoneNumber = "\nผู้แจ้งไม่ได้กรอกเบอร์ติดต่อ";
         if (task.phoneNumber !== "") {
@@ -164,18 +172,19 @@ async function addTask(task) {
 async function getTaskList(personnel_id, level_id, view_id, showcase) {
 
     try {
-        console.log("getTaskList call try to connect server");
-        let pool = await sql.connect(config);
-        console.log("connect complete");
+        console.log("getTaskList call");
         console.log("getTaskList as " + level_id);
         let result;
         const resData = await getPersonnelData(personnel_id);
+        console.log("try connect to server");
+        let pool = await sql.connect(config);
+        console.log("connect complete");
         if ((level_id === 'DMIS_IT' || level_id === 'DMIS_MT' || level_id === 'DMIS_MER') && showcase === "false") {
             // if (showcase === "false") {
-                console.log("level = " + level_id + " not showcase");
-                result = await pool.request()
-                    .input('level_id', sql.VarChar, level_id)
-                    .query(TaskListQueryText + "WHERE dmis_tasks.level_id = @level_id AND dmis_tasks.status_id NOT IN (0,5) ");
+            console.log("level = " + level_id + " not showcase");
+            result = await pool.request()
+                .input('level_id', sql.VarChar, level_id)
+                .query(TaskListQueryText + "WHERE dmis_tasks.level_id = @level_id AND dmis_tasks.status_id NOT IN (0,5) ");
             // }
             // else {
             //     console.log("level = " + level_id + " showcase");
@@ -241,17 +250,18 @@ async function getTaskList(personnel_id, level_id, view_id, showcase) {
 async function getCompleteTaskList(personnel_id, level_id, view_id, showcase) {
     try {
 
-        console.log("getCompleteTaskList call try connect to server");
-        let pool = await sql.connect(config);
-        console.log("connect complete");
+        console.log("getCompleteTaskList call");
         let result;
         const resData = await getPersonnelData(personnel_id);
+        console.log("try connect to server");
+        let pool = await sql.connect(config);
+        console.log("connect complete");
         if ((level_id === 'DMIS_IT' || level_id === 'DMIS_MT' || level_id === 'DMIS_MER') && showcase === "false") {
             // if (showcase === "false") {
-                console.log("level = " + level_id + " not showcase");
-                result = await pool.request()
-                    .input('level_id', sql.VarChar, level_id)
-                    .query(TaskListQueryText + "WHERE dmis_tasks.level_id = @level_id AND dmis_tasks.status_id IN (0,5) ORDER BY dmis_tasks.task_id DESC");
+            console.log("level = " + level_id + " not showcase");
+            result = await pool.request()
+                .input('level_id', sql.VarChar, level_id)
+                .query(TaskListQueryText + "WHERE dmis_tasks.level_id = @level_id AND dmis_tasks.status_id IN (0,5) ORDER BY dmis_tasks.task_id DESC");
             // }
             // else {
             //     console.log("level = " + level_id + " showcase");
@@ -318,12 +328,13 @@ async function getCompleteTaskList(personnel_id, level_id, view_id, showcase) {
 async function getAllTaskList(personnel_id, level_id, view_id) {
     try {
 
-        console.log("getAllTaskList call try connect to server");
-        let pool = await sql.connect(config);
-        console.log("connect complete");
+        console.log("getAllTaskList call");
         let result;
         let itmtQuery = "";
         const resData = await getPersonnelData(personnel_id);
+        console.log("try connect to server");
+        let pool = await sql.connect(config);
+        console.log("connect complete");
         // if (level_id === 'DMIS_IT' || level_id === 'DMIS_MT' || level_id === 'DMIS_MER') {
         //     console.log("level = " + level_id)
         //     result = await pool.request()
@@ -333,7 +344,7 @@ async function getAllTaskList(personnel_id, level_id, view_id) {
         //         .query(TaskListQueryText + "WHERE dmis_tasks.level_id = @level_id OR dmis_tasks.issue_department_id = @department_id OR dmis_tasks.informer_id = @informer_id ORDER BY dmis_tasks.task_id DESC");
         // }
         if (level_id === 'DMIS_IT' || level_id === 'DMIS_MT' || level_id === 'DMIS_MER') {
-            itmtQuery = "OR dmis_tasks.level_id = '"+level_id+"'";
+            itmtQuery = "OR dmis_tasks.level_id = '" + level_id + "'";
         }
         if (view_id === 'VDMIS_DPM') {
             console.log("department id = " + resData.department_id);
@@ -341,7 +352,7 @@ async function getAllTaskList(personnel_id, level_id, view_id) {
                 .input('department_id', sql.Int, resData.department_id)
                 .input('informer_id', sql.VarChar, personnel_id)
                 .query(TaskListQueryText +
-                    "WHERE dmis_tasks.issue_department_id = @department_id OR dmis_tasks.informer_id = @informer_id "+ itmtQuery + " " +
+                    "WHERE dmis_tasks.issue_department_id = @department_id OR dmis_tasks.informer_id = @informer_id " + itmtQuery + " " +
                     "ORDER BY dmis_tasks.task_id DESC");
         }
         else if (view_id === 'VDMIS_FAC') {
@@ -350,7 +361,7 @@ async function getAllTaskList(personnel_id, level_id, view_id) {
                 .input('faction_id', sql.Int, resData.faction_id)
                 .input('informer_id', sql.VarChar, personnel_id)
                 .query(TaskListQueryText +
-                    "WHERE personnel_factions.faction_id = @faction_id OR dmis_tasks.informer_id = @informer_id "+ itmtQuery + " " +
+                    "WHERE personnel_factions.faction_id = @faction_id OR dmis_tasks.informer_id = @informer_id " + itmtQuery + " " +
                     "ORDER BY dmis_tasks.task_id DESC");
 
         }
@@ -360,7 +371,7 @@ async function getAllTaskList(personnel_id, level_id, view_id) {
                 .input('field_id', sql.Int, resData.field_id)
                 .input('informer_id', sql.VarChar, personnel_id)
                 .query(TaskListQueryText +
-                    "WHERE personnel_fields.field_id = @field_id OR dmis_tasks.informer_id = @informer_id "+ itmtQuery + " " +
+                    "WHERE personnel_fields.field_id = @field_id OR dmis_tasks.informer_id = @informer_id " + itmtQuery + " " +
                     "ORDER BY dmis_tasks.task_id DESC");
         }
         else if (view_id === 'VDMIS_ALL') {
@@ -430,10 +441,10 @@ async function acceptTask(task) {
             token = process.env.DMIS_IT_lineToken;
         }
         else if (task.level_id === "DMIS_MT") {
-            token = process.env.DMIS_MT_lineToken_TEST;
+            token = process.env.DMIS_MT_lineToken;
         }
         else if (task.level_id === "DMIS_MER") {
-            token = process.env.DMIS_MER_lineToken_TEST;
+            token = process.env.DMIS_MER_lineToken;
         }
         let operatorName = "\nยังไม่ได้ระบุผู้รับผิดชอบงาน";
         if (task.operator_name !== "") {
@@ -597,10 +608,10 @@ async function countTask(personnel_id, level_id, view_id, showcase) {
         const resData = await getPersonnelData(personnel_id);
         if ((level_id === "DMIS_IT" || level_id === "DMIS_MT" || level_id === "DMIS_MER") && showcase === "false") {
             // if (showcase === "false") {
-                console.log("level_id = " + level_id + "not showcase");
-                result = await pool.request()
-                    .input('level_id', sql.VarChar, level_id)
-                    .query(queryText + "WHERE dmis_tasks.level_id = @level_id");
+            console.log("level_id = " + level_id + "not showcase");
+            result = await pool.request()
+                .input('level_id', sql.VarChar, level_id)
+                .query(queryText + "WHERE dmis_tasks.level_id = @level_id");
             // }
             // else {
             //     console.log("level_id = " + level_id + " showcase");
