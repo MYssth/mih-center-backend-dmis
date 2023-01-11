@@ -139,6 +139,17 @@ router.route('/getstatus').get((request, response) => {
     
 });
 
+router.route('/getestimation').get((request, response) => {
+
+    dboperations.getEstimation().then(result => {
+        response.json(result[0]);
+    }).catch(err => {
+        console.error(err);
+        response.setStatus(500);
+    });
+    
+});
+
 router.route('/counttask/:personnel_id/:level_id/:view_id/:showcase').get((request, response) => {
 
     dboperations.countTask(request.params.personnel_id, request.params.level_id, request.params.view_id, request.params.showcase).then(result => {
