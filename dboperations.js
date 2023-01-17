@@ -37,6 +37,14 @@ const TaskListQueryText = "SELECT ROW_NUMBER() OVER (ORDER BY dmis_tasks.task_id
     "dmis_task_categories.category_name, " +
     "dmis_tasks.estimation_id, " +
     "dmis_task_estimation.estimation_name, " +
+    "dmis_tasks.status_id_request, " +
+    "dmis_tasks.task_iscomplete, " +
+    "dmis_tasks.audit_id, " +
+    "audit.personnel_firstname AS audit_firstname, " +
+    "audit.personnel_lastname AS audit_lastname, " +
+    "dmis_tasks.permit_id, " +
+    "permit.personnel_firstname AS permit_firstname, " +
+    "permit.personnel_lastname AS permit_lastname, " +
     "personnel_factions.faction_id " +
     "FROM dmis_tasks " +
     "INNER JOIN personnel inf ON inf.personnel_id = dmis_tasks.informer_id " +
@@ -50,7 +58,9 @@ const TaskListQueryText = "SELECT ROW_NUMBER() OVER (ORDER BY dmis_tasks.task_id
     "LEFT JOIN personnel_factions ON personnel_factions.faction_id = personnel_departments.faction_id " +
     "LEFT JOIN personnel_fields ON personnel_fields.field_id = personnel_factions.field_id " +
     "LEFT JOIN dmis_task_categories ON dmis_task_categories.category_id = dmis_tasks.category_id " +
-    "LEFT JOIN dmis_task_estimation ON dmis_task_estimation.estimation_id = dmis_tasks.estimation_id ";
+    "LEFT JOIN dmis_task_estimation ON dmis_task_estimation.estimation_id = dmis_tasks.estimation_id " +
+    "LEFT JOIN personnel audit ON audit.personnel_id = dmis_tasks.audit_id " +
+    "LEFT JOIN personnel permit ON permit.personnel_id = dmis_tasks.permit_id ";
 
 async function getNextTaskId(level_id) {
     let pool = await sql.connect(config);
