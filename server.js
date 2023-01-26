@@ -172,6 +172,17 @@ router.route('/getpermittasklist/:level_id').get((request, response) => {
     
 });
 
+router.route('/countpermittask/:level_id').get((request, response) => {
+
+    dboperations.countPermitTask(request.params.level_id).then(result => {
+        response.json(result[0]);
+    }).catch(err => {
+        console.error(err);
+        response.setStatus(500);
+    });
+    
+});
+
 router.route('/getaudittasklist/:personnel_id/:view_id').get((request, response) => {
 
     dboperations.getAuditTaskList(request.params.personnel_id, request.params.view_id).then(result => {
