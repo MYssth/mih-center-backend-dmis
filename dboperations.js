@@ -44,6 +44,7 @@ const TaskListQueryText = "SELECT ROW_NUMBER() OVER (ORDER BY dmis_tasks.task_id
     "audit.personnel_firstname AS audit_firstname, " +
     "audit.personnel_lastname AS audit_lastname, " +
     "dmis_tasks.audit_date, " +
+    "dmis_tasks.audit_comment, " +
     "dmis_tasks.permit_id, " +
     "permit.personnel_firstname AS permit_firstname, " +
     "permit.personnel_lastname AS permit_lastname, " +
@@ -553,6 +554,15 @@ async function processTask(task) {
                 .input('status_id_request', sql.TinyInt, task.status_id_request)
                 .input('permit_id', sql.VarChar, task.permit_id)
                 .query(queryText + "WHERE task_id = @task_id AND level_id = @level_id");
+        }
+        else if(task.taskCase === "comment") {
+            console.log("comment task");
+            await pool.request()
+            .input('task_id', sql.VarChar, task.task_id)
+            .input('level_id', sql.VarChar, task.level_id)
+            .input('audit_comment', sql.Text, task.audit_comment)
+            .query("UPDATE dmis_tasks SET audit_comment = @audit_comment " +
+            "WHERE task_id = @task_id AND level_id = @level_id");
         }
         else if (task.taskCase === "audit") {
             console.log("audit task");
