@@ -568,6 +568,7 @@ async function processTask(task) {
             console.log("audit task");
             let queryText = "UPDATE dmis_tasks SET " +
                 "audit_id = @audit_id, " +
+                "audit_comment = @audit_comment, " +
                 "audit_date = GETDATE() ";
             if (task.status_id === 6) {
                 console.log("status_id = 6, complete case by audit");
@@ -577,6 +578,7 @@ async function processTask(task) {
                 .input('task_id', sql.VarChar, task.task_id)
                 .input('level_id', sql.VarChar, task.level_id)
                 .input('audit_id', sql.VarChar, task.audit_id)
+                .input('audit_comment', sql.Text, task.audit_comment)
                 .query(queryText + "WHERE task_id = @task_id AND level_id = @level_id");
         }
         else if (task.taskCase === "reject") {
