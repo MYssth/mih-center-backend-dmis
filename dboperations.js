@@ -206,21 +206,18 @@ async function getTaskList(personnel_id, level_id, view_id, showcase) {
             result = await pool.request()
                 .input('level_id', sql.VarChar, level_id)
                 .query(TaskListQueryText + "WHERE dmis_tasks.level_id = @level_id " +
-                    "AND NULLIF(dmis_tasks.status_id_request, '') IS NULL " +
                     "AND NULLIF(dmis_tasks.task_iscomplete, '') IS NULL ");
         }
         else if (level_id === 'DMIS_HIT' && showcase === 'false') {
             console.log("level = " + level_id + " not showcase");
             result = await pool.request()
                 .query(TaskListQueryText + "WHERE dmis_tasks.level_id = 'DMIS_IT' " +
-                    "AND NULLIF(dmis_tasks.status_id_request, '') IS NULL " +
                     "AND NULLIF(dmis_tasks.task_iscomplete, '') IS NULL ");
         }
         else if (level_id === 'DMIS_ENV' && showcase === 'false') {
             console.log("level = " + level_id + " not showcase");
             result = await pool.request()
                 .query(TaskListQueryText + "WHERE (dmis_tasks.level_id = 'DMIS_MT' OR dmis_tasks.level_id = 'DMIS_MER') " +
-                    "AND NULLIF(dmis_tasks.status_id_request, '') IS NULL " +
                     "AND NULLIF(dmis_tasks.task_iscomplete, '') IS NULL ");
         }
         else if (level_id === 'DMIS_ALL' && showcase === 'false') {
@@ -523,6 +520,11 @@ async function processTask(task) {
             else if (task.status_id_request !== 2) {
                 queryText += ", status_id_request = @status_id_request ";
             }
+            else if (task.status_id_request === 2) {
+                queryText += ", status_id = '2', " +
+                "permit_id = NULL, " +
+                "permit_date = NULL ";
+            }
             await pool.request()
                 .input('task_id', sql.VarChar, task.task_id)
                 .input('level_id', sql.VarChar, task.level_id)
@@ -538,8 +540,33 @@ async function processTask(task) {
                 .input('estimation_id', sql.TinyInt, task.estimation_id)
                 .query(queryText + "WHERE task_id = @task_id AND level_id = @level_id");
         }
+        else if (task.taskCase === "edit") {
+            console.log("edit task");
+            let queryText = "UPDATE dmis_tasks SET " +
+                "task_phone_no = @task_phone_no, " +
+                "task_device_id = @task_device_id, " +
+                "task_serialnumber = @task_serialnumber, " +
+                "task_cost = @task_cost, " +
+                "estimation_id = @estimation_id, " +
+                "operator_id = @operator_id, " +
+                "category_id = @category_id, " +
+                "task_note = @task_note, " +
+                "task_date_process = GETDATE()";
+            await pool.request()
+                .input('task_id', sql.VarChar, task.task_id)
+                .input('level_id', sql.VarChar, task.level_id)
+                .input('task_phone_no', sql.VarChar, task.task_phone_no)
+                .input('task_device_id', sql.VarChar, task.task_device_id)
+                .input('task_serialnumber', sql.VarChar, task.task_serialnumber)
+                .input('task_cost', sql.VarChar, task.task_cost)
+                .input('estimation_id', sql.TinyInt, task.estimation_id)
+                .input('operator_id', sql.VarChar, task.operator_id)
+                .input('category_id', sql.TinyInt, task.category_id)
+                .input('task_note', sql.Text, task.task_note)
+                .query(queryText + "WHERE task_id = @task_id AND level_id = @level_id");
+        }
         else if (task.taskCase === "permit") {
-            console.log("permit task, status_id_request = "+task.status_id_request);
+            console.log("permit task, status_id_request = " + task.status_id_request);
             let queryText = "UPDATE dmis_tasks SET " +
                 "status_id_request = NULL, " +
                 "status_id = @status_id_request, " +
@@ -555,14 +582,14 @@ async function processTask(task) {
                 .input('permit_id', sql.VarChar, task.permit_id)
                 .query(queryText + "WHERE task_id = @task_id AND level_id = @level_id");
         }
-        else if(task.taskCase === "comment") {
+        else if (task.taskCase === "comment") {
             console.log("comment task");
             await pool.request()
-            .input('task_id', sql.VarChar, task.task_id)
-            .input('level_id', sql.VarChar, task.level_id)
-            .input('audit_comment', sql.Text, task.audit_comment)
-            .query("UPDATE dmis_tasks SET audit_comment = @audit_comment " +
-            "WHERE task_id = @task_id AND level_id = @level_id");
+                .input('task_id', sql.VarChar, task.task_id)
+                .input('level_id', sql.VarChar, task.level_id)
+                .input('audit_comment', sql.Text, task.audit_comment)
+                .query("UPDATE dmis_tasks SET audit_comment = @audit_comment " +
+                    "WHERE task_id = @task_id AND level_id = @level_id");
         }
         else if (task.taskCase === "audit") {
             console.log("audit task");
@@ -638,10 +665,13 @@ async function getOperator(level_id) {
         let pool = await sql.connect(config);
         console.log("connect complete");
         let levelCheck = "personnel_level_list.level_id = @level_id";
-        if (level_id === 'DMIS_ENV') {
+        if(level_id === 'DMIS_MT' || level_id === 'DMIS_MER'){
+            levelCheck = "personnel_level_list.level_id = @level_id OR personnel_level_list.level_id = 'DMIS_ENV'";
+        }
+        else if (level_id === 'DMIS_ENV') {
             levelCheck = "personnel_level_list.level_id = 'DMIS_ENV' OR personnel_level_list.level_id = 'DMIS_MT' OR personnel_level_list.level_id = 'DMIS_MER'";
         }
-        else if (level_id === 'DMIS_HIT') {
+        else if (level_id === 'DMIS_HIT' || level_id === 'DMIS_IT') {
             levelCheck = "personnel_level_list.level_id = 'DMIS_HIT' OR personnel_level_list.level_id = 'DMIS_IT'";
         }
         else if (level_id === 'DMIS_ALL') {
@@ -754,19 +784,19 @@ async function countTask(personnel_id, level_id, view_id, showcase) {
             console.log("level_id = " + level_id + " not showcase");
             result = await pool.request()
                 .input('level_id', sql.VarChar, level_id)
-                .query(queryText + "WHERE dmis_tasks.level_id = @level_id AND dmis_tasks.status_id_request IS NULL ");
+                .query(queryText + "WHERE dmis_tasks.level_id = @level_id ");
         }
         else if (level_id === 'DMIS_HIT' && showcase === "false") {
             console.log("level_id = " + level_id + " not showcase");
             result = await pool.request()
                 .input('level_id', sql.VarChar, level_id)
-                .query(queryText + "WHERE dmis_tasks.level_id = 'DMIS_IT' AND dmis_tasks.status_id_request IS NULL ");
+                .query(queryText + "WHERE dmis_tasks.level_id = 'DMIS_IT' ");
         }
         else if (level_id === 'DMIS_ENV' && showcase === "false") {
             console.log("level_id = " + level_id + " not showcase");
             result = await pool.request()
                 .input('level_id', sql.VarChar, level_id)
-                .query(queryText + "WHERE (dmis_tasks.level_id = 'DMIS_MT' OR dmis_tasks.level_id = 'DMIS_MER') AND dmis_tasks.status_id_request IS NULL ");
+                .query(queryText + "WHERE (dmis_tasks.level_id = 'DMIS_MT' OR dmis_tasks.level_id = 'DMIS_MER') ");
         }
         else if (level_id === 'DMIS_ALL' && showcase === "false") {
             console.log("level_id = " + level_id + " not showcase");
