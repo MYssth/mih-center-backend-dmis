@@ -135,8 +135,9 @@ async function addTask(task) {
             .input('status_id', sql.TinyInt, 1)
             .input('informer_id', sql.VarChar, task.informer_id)
             .input('issue_department_id', sql.Int, task.issue_department_id)
-            .query("INSERT INTO dmis_tasks (task_id, level_id, task_issue, task_date_start, task_serialnumber, task_device_id, status_id, informer_id, issue_department_id)" +
-                "VALUES (@task_id, @level_id, @task_issue, GETDATE(), @task_serialnumber, @task_device_id, @status_id, @informer_id, @issue_department_id)");
+            .input('task_phone_no', sql.VarChar, task.phoneNumber)
+            .query("INSERT INTO dmis_tasks (task_id, level_id, task_issue, task_date_start, task_serialnumber, task_device_id, status_id, informer_id, issue_department_id, task_phone_no)" +
+                "VALUES (@task_id, @level_id, @task_issue, GETDATE(), @task_serialnumber, @task_device_id, @status_id, @informer_id, @issue_department_id, @task_phone_no)");
         console.log("addTask complete");
 
         let token = "";
