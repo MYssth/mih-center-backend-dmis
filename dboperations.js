@@ -444,6 +444,7 @@ async function acceptTask(task) {
                 "receiver_id = @receiver_id, " +
                 "operator_id = @operator_id, " +
                 "task_date_accept = GETDATE(), " +
+                "task_date_process = GETDATE(), " +
                 "estimation_id = @estimation_id, " +
                 "status_id = 2 " +
                 "WHERE task_id = @task_id AND level_id = @level_id");
