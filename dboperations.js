@@ -552,8 +552,9 @@ async function processTask(task) {
                 "estimation_id = @estimation_id, " +
                 "operator_id = @operator_id, " +
                 "category_id = @category_id, " +
-                "task_note = @task_note, " +
-                "task_date_process = GETDATE()";
+                "task_note = @task_note ";
+                // "task_note = @task_note, " +
+                // "task_date_process = GETDATE()";
             await pool.request()
                 .input('task_id', sql.VarChar, task.task_id)
                 .input('level_id', sql.VarChar, task.level_id)
@@ -567,7 +568,7 @@ async function processTask(task) {
                 .input('task_note', sql.Text, task.task_note)
                 .query(queryText + "WHERE task_id = @task_id AND level_id = @level_id");
         }
-        else if (task.taskCase === "permit") {
+        else if (task.taskCase === "permit" || task.taskCase === "permitEnd") {
             console.log("permit task, status_id_request = " + task.status_id_request);
             let queryText = "UPDATE dmis_tasks SET " +
                 "status_id_request = NULL, " +
@@ -575,7 +576,10 @@ async function processTask(task) {
                 "permit_id = @permit_id, " +
                 "permit_date = GETDATE() ";
             if (task.status_id_request === 5 || task.status_id_request === 0) {
-                queryText += ", task_iscomplete = 1, task_date_end = GETDATE() "
+                queryText += ", task_iscomplete = 1, task_date_end = GETDATE() ";
+            }
+            else if(task.taskCase === "permitEnd"){
+                queryText += ", task_iscomplete = 1, task_date_end = GETDATE(), task_solution = 'งานดำเนินการเสร็จสิ้น ส่งมอบทางผู้แจ้งดำเนินการต่อ' "
             }
             await pool.request()
                 .input('task_id', sql.VarChar, task.task_id)
@@ -599,10 +603,11 @@ async function processTask(task) {
                 "audit_id = @audit_id, " +
                 "audit_comment = @audit_comment, " +
                 "audit_date = GETDATE() ";
-            if (task.status_id === 6) {
-                console.log("status_id = 6, complete case by audit");
-                queryText += ", task_iscomplete = 1 ";
-            }
+            // if (task.status_id === 6) {
+            //     console.log("status_id = 6, complete case by audit");
+            //     queryText += ", task_iscomplete = 1, " +
+            //     " task_date_end = GETDATE() ";
+            // }
             await pool.request()
                 .input('task_id', sql.VarChar, task.task_id)
                 .input('level_id', sql.VarChar, task.level_id)
@@ -632,7 +637,7 @@ async function processTask(task) {
                 "task_phone_no = @task_phone_no, " +
                 "task_note = @task_note, " +
                 "estimation_id = @estimation_id, " +
-                "task_date_process = GETDATE(), " +
+                // "task_date_process = GETDATE(), " +
                 "task_date_end = GETDATE() ";
             await pool.request()
                 .input('task_id', sql.VarChar, task.task_id)
@@ -909,7 +914,8 @@ async function getAuditTaskList(personnel_id, view_id) {
                 .input('informer_id', sql.VarChar, personnel_id)
                 .query(TaskListQueryText +
                     "WHERE ( dmis_tasks.issue_department_id = @department_id OR dmis_tasks.informer_id = @informer_id ) " +
-                    "AND ((dmis_tasks.task_iscomplete = 1 AND dmis_tasks.status_id <> 0) OR (dmis_tasks.status_id = 6 AND NULLIF(dmis_tasks.task_iscomplete, '') IS NULL)) " +
+                    // "AND ((dmis_tasks.task_iscomplete = 1 AND dmis_tasks.status_id <> 0) OR (dmis_tasks.status_id = 6 AND NULLIF(dmis_tasks.task_iscomplete, '') IS NULL)) " +
+                    "AND (dmis_tasks.task_iscomplete = 1 AND dmis_tasks.status_id <> 0) " +
                     "AND NULLIF(dmis_tasks.audit_id, '') IS NULL ");
         }
         else if (view_id === 'VDMIS_FAC') {
@@ -919,7 +925,8 @@ async function getAuditTaskList(personnel_id, view_id) {
                 .input('informer_id', sql.VarChar, personnel_id)
                 .query(TaskListQueryText +
                     "WHERE ( personnel_factions.faction_id = @faction_id OR dmis_tasks.informer_id = @informer_id ) " +
-                    "AND ((dmis_tasks.task_iscomplete = 1 AND dmis_tasks.status_id <> 0) OR (dmis_tasks.status_id = 6 AND NULLIF(dmis_tasks.task_iscomplete, '') IS NULL)) " +
+                    // "AND ((dmis_tasks.task_iscomplete = 1 AND dmis_tasks.status_id <> 0) OR (dmis_tasks.status_id = 6 AND NULLIF(dmis_tasks.task_iscomplete, '') IS NULL)) " +
+                    "AND (dmis_tasks.task_iscomplete = 1 AND dmis_tasks.status_id <> 0) " +
                     "AND NULLIF(dmis_tasks.audit_id, '') IS NULL ");
         }
         else if (view_id === 'VDMIS_FLD') {
@@ -929,13 +936,15 @@ async function getAuditTaskList(personnel_id, view_id) {
                 .input('informer_id', sql.VarChar, personnel_id)
                 .query(TaskListQueryText +
                     "WHERE ( personnel_fields.field_id = @field_id OR dmis_tasks.informer_id = @informer_id ) " +
-                    "AND ((dmis_tasks.task_iscomplete = 1 AND dmis_tasks.status_id <> 0) OR (dmis_tasks.status_id = 6 AND NULLIF(dmis_tasks.task_iscomplete, '') IS NULL)) " +
+                    // "AND ((dmis_tasks.task_iscomplete = 1 AND dmis_tasks.status_id <> 0) OR (dmis_tasks.status_id = 6 AND NULLIF(dmis_tasks.task_iscomplete, '') IS NULL)) " +
+                    "AND (dmis_tasks.task_iscomplete = 1 AND dmis_tasks.status_id <> 0) " +
                     "AND NULLIF(dmis_tasks.audit_id, '') IS NULL ");
         }
         else if (view_id === 'VDMIS_ALL') {
             console.log("get all activate");
             result = await pool.request().query(TaskListQueryText +
-                "WHERE ((dmis_tasks.task_iscomplete = 1 AND dmis_tasks.status_id <> 0) OR (dmis_tasks.status_id = 6 AND NULLIF(dmis_tasks.task_iscomplete, '') IS NULL)) " +
+                // "WHERE ((dmis_tasks.task_iscomplete = 1 AND dmis_tasks.status_id <> 0) OR (dmis_tasks.status_id = 6 AND NULLIF(dmis_tasks.task_iscomplete, '') IS NULL)) " +
+                "WHERE (dmis_tasks.task_iscomplete = 1 AND dmis_tasks.status_id <> 0) " +
                 "AND NULLIF(dmis_tasks.audit_id, '') IS NULL ");
         }
         console.log("getAuditTaskList complete");
