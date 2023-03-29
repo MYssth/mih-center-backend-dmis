@@ -40,6 +40,7 @@ const TaskListQueryText = "SELECT ROW_NUMBER() OVER (ORDER BY dmis_tasks.task_id
     "dmis_tasks.status_id_request, " +
     "req.status_name AS status_name_request, " +
     "dmis_tasks.task_iscomplete, " +
+    "is_program_change, " +
     "dmis_tasks.audit_id, " +
     "audit.personnel_firstname AS audit_firstname, " +
     "audit.personnel_lastname AS audit_lastname, " +
@@ -516,6 +517,9 @@ async function processTask(task) {
                 "task_note = @task_note, " +
                 "estimation_id = @estimation_id, " +
                 "task_date_process = GETDATE() ";
+            if (task.category_id === 1) {
+                queryText += ", is_program_change = @is_program_change ";
+            }
             if (task.status_id_request === 0) {
                 queryText += ", status_id = @status_id_request, task_iscomplete = 1 ";
             }
@@ -524,8 +528,8 @@ async function processTask(task) {
             }
             else if (task.status_id_request === 2) {
                 queryText += ", status_id = '2', " +
-                "permit_id = NULL, " +
-                "permit_date = NULL ";
+                    "permit_id = NULL, " +
+                    "permit_date = NULL ";
             }
             await pool.request()
                 .input('task_id', sql.VarChar, task.task_id)
@@ -540,6 +544,7 @@ async function processTask(task) {
                 .input('task_phone_no', sql.VarChar, task.task_phone_no)
                 .input('task_note', sql.Text, task.task_note)
                 .input('estimation_id', sql.TinyInt, task.estimation_id)
+                .input('is_program_change', sql.TinyInt, task.is_program_change)
                 .query(queryText + "WHERE task_id = @task_id AND level_id = @level_id");
         }
         else if (task.taskCase === "edit") {
@@ -553,8 +558,8 @@ async function processTask(task) {
                 "operator_id = @operator_id, " +
                 "category_id = @category_id, " +
                 "task_note = @task_note ";
-                // "task_note = @task_note, " +
-                // "task_date_process = GETDATE()";
+            // "task_note = @task_note, " +
+            // "task_date_process = GETDATE()";
             await pool.request()
                 .input('task_id', sql.VarChar, task.task_id)
                 .input('level_id', sql.VarChar, task.level_id)
@@ -578,7 +583,7 @@ async function processTask(task) {
             if (task.status_id_request === 5 || task.status_id_request === 0) {
                 queryText += ", task_iscomplete = 1, task_date_end = GETDATE() ";
             }
-            else if(task.taskCase === "permitEnd"){
+            else if (task.taskCase === "permitEnd") {
                 queryText += ", task_iscomplete = 1, task_date_end = GETDATE(), task_solution = 'งานดำเนินการเสร็จสิ้น ส่งมอบทางผู้แจ้งดำเนินการต่อ' "
             }
             await pool.request()
@@ -639,6 +644,9 @@ async function processTask(task) {
                 "estimation_id = @estimation_id, " +
                 // "task_date_process = GETDATE(), " +
                 "task_date_end = GETDATE() ";
+            if (task.category_id === 1) {
+                queryText += ", is_program_change = @is_program_change "
+            }
             await pool.request()
                 .input('task_id', sql.VarChar, task.task_id)
                 .input('level_id', sql.VarChar, task.level_id)
@@ -651,6 +659,7 @@ async function processTask(task) {
                 .input('task_phone_no', sql.VarChar, task.task_phone_no)
                 .input('task_note', sql.Text, task.task_note)
                 .input('estimation_id', sql.TinyInt, task.estimation_id)
+                .input('is_program_change', sql.TinyInt, task.is_program_change)
                 .query(queryText + "WHERE task_id = @task_id AND level_id = @level_id");
         }
 
@@ -672,7 +681,7 @@ async function getOperator(level_id) {
         let pool = await sql.connect(config);
         console.log("connect complete");
         let levelCheck = "personnel_level_list.level_id = @level_id";
-        if(level_id === 'DMIS_MT' || level_id === 'DMIS_MER'){
+        if (level_id === 'DMIS_MT' || level_id === 'DMIS_MER') {
             levelCheck = "personnel_level_list.level_id = @level_id OR personnel_level_list.level_id = 'DMIS_ENV'";
         }
         else if (level_id === 'DMIS_ENV') {
