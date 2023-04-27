@@ -584,7 +584,7 @@ async function processTask(task) {
                 queryText += ", task_iscomplete = 1, task_date_end = GETDATE() ";
             }
             else if (task.taskCase === "permitEnd") {
-                queryText += ", task_iscomplete = 1, task_date_end = GETDATE(), task_solution = 'งานดำเนินการเสร็จสิ้น ส่งมอบทางผู้แจ้งดำเนินการต่อ' "
+                queryText += ", task_iscomplete = 1, task_isinfortask = 1, task_date_end = GETDATE(), task_solution = 'งานดำเนินการเสร็จสิ้น ส่งมอบทางผู้แจ้งดำเนินการต่อ' "
             }
             await pool.request()
                 .input('task_id', sql.VarChar, task.task_id)
@@ -608,11 +608,6 @@ async function processTask(task) {
                 "audit_id = @audit_id, " +
                 "audit_comment = @audit_comment, " +
                 "audit_date = GETDATE() ";
-            // if (task.status_id === 6) {
-            //     console.log("status_id = 6, complete case by audit");
-            //     queryText += ", task_iscomplete = 1, " +
-            //     " task_date_end = GETDATE() ";
-            // }
             await pool.request()
                 .input('task_id', sql.VarChar, task.task_id)
                 .input('level_id', sql.VarChar, task.level_id)
@@ -923,8 +918,7 @@ async function getAuditTaskList(personnel_id, view_id) {
                 .input('informer_id', sql.VarChar, personnel_id)
                 .query(TaskListQueryText +
                     "WHERE ( dmis_tasks.issue_department_id = @department_id OR dmis_tasks.informer_id = @informer_id ) " +
-                    // "AND ((dmis_tasks.task_iscomplete = 1 AND dmis_tasks.status_id <> 0) OR (dmis_tasks.status_id = 6 AND NULLIF(dmis_tasks.task_iscomplete, '') IS NULL)) " +
-                    "AND (dmis_tasks.task_iscomplete = 1 AND dmis_tasks.status_id <> 0) " +
+                    "AND (dmis_tasks.task_iscomplete = 1 AND dmis_tasks.status_id <> 0) AND dmis_tasks.task_isinfortask IS NULL " +
                     "AND NULLIF(dmis_tasks.audit_id, '') IS NULL ");
         }
         else if (view_id === 'VDMIS_FAC') {
@@ -934,8 +928,7 @@ async function getAuditTaskList(personnel_id, view_id) {
                 .input('informer_id', sql.VarChar, personnel_id)
                 .query(TaskListQueryText +
                     "WHERE ( personnel_factions.faction_id = @faction_id OR dmis_tasks.informer_id = @informer_id ) " +
-                    // "AND ((dmis_tasks.task_iscomplete = 1 AND dmis_tasks.status_id <> 0) OR (dmis_tasks.status_id = 6 AND NULLIF(dmis_tasks.task_iscomplete, '') IS NULL)) " +
-                    "AND (dmis_tasks.task_iscomplete = 1 AND dmis_tasks.status_id <> 0) " +
+                    "AND (dmis_tasks.task_iscomplete = 1 AND dmis_tasks.status_id <> 0) AND dmis_tasks.task_isinfortask IS NULL " +
                     "AND NULLIF(dmis_tasks.audit_id, '') IS NULL ");
         }
         else if (view_id === 'VDMIS_FLD') {
@@ -945,20 +938,129 @@ async function getAuditTaskList(personnel_id, view_id) {
                 .input('informer_id', sql.VarChar, personnel_id)
                 .query(TaskListQueryText +
                     "WHERE ( personnel_fields.field_id = @field_id OR dmis_tasks.informer_id = @informer_id ) " +
-                    // "AND ((dmis_tasks.task_iscomplete = 1 AND dmis_tasks.status_id <> 0) OR (dmis_tasks.status_id = 6 AND NULLIF(dmis_tasks.task_iscomplete, '') IS NULL)) " +
-                    "AND (dmis_tasks.task_iscomplete = 1 AND dmis_tasks.status_id <> 0) " +
+                    "AND (dmis_tasks.task_iscomplete = 1 AND dmis_tasks.status_id <> 0) AND dmis_tasks.task_isinfortask IS NULL " +
                     "AND NULLIF(dmis_tasks.audit_id, '') IS NULL ");
         }
         else if (view_id === 'VDMIS_ALL') {
             console.log("get all activate");
             result = await pool.request().query(TaskListQueryText +
-                // "WHERE ((dmis_tasks.task_iscomplete = 1 AND dmis_tasks.status_id <> 0) OR (dmis_tasks.status_id = 6 AND NULLIF(dmis_tasks.task_iscomplete, '') IS NULL)) " +
-                "WHERE (dmis_tasks.task_iscomplete = 1 AND dmis_tasks.status_id <> 0) " +
+                "WHERE (dmis_tasks.task_iscomplete = 1 AND dmis_tasks.status_id <> 0) AND dmis_tasks.task_isinfortask IS NULL " +
                 "AND NULLIF(dmis_tasks.audit_id, '') IS NULL ");
         }
         console.log("getAuditTaskList complete");
         console.log("====================");
         return result.recordsets;
+    }
+    catch (error) {
+        console.error(error);
+        return { "status": "error", "message": error.message };
+    }
+}
+
+async function getInformerTaskList(personnel_id, view_id) {
+    try {
+        console.log("getInformerTaskList call");
+        const resData = await getPersonnelData(personnel_id);
+        console.log("try connect to server");
+        let pool = await sql.connect(config);
+        console.log("connect complete");
+        if (view_id === 'VDMIS_DPM') {
+            console.log("department id = " + resData.department_id);
+            result = await pool.request()
+                .input('department_id', sql.Int, resData.department_id)
+                .input('informer_id', sql.VarChar, personnel_id)
+                .query(TaskListQueryText +
+                    "WHERE ( dmis_tasks.issue_department_id = @department_id OR dmis_tasks.informer_id = @informer_id ) " +
+                    "AND (dmis_tasks.task_isinfortask = 1 AND dmis_tasks.status_id <> 0) " +
+                    "AND NULLIF(dmis_tasks.audit_id, '') IS NULL ");
+        }
+        else if (view_id === 'VDMIS_FAC') {
+            console.log("faction id = " + resData.faction_id);
+            result = await pool.request()
+                .input('faction_id', sql.Int, resData.faction_id)
+                .input('informer_id', sql.VarChar, personnel_id)
+                .query(TaskListQueryText +
+                    "WHERE ( personnel_factions.faction_id = @faction_id OR dmis_tasks.informer_id = @informer_id ) " +
+                    "AND (dmis_tasks.task_isinfortask = 1 AND dmis_tasks.status_id <> 0) " +
+                    "AND NULLIF(dmis_tasks.audit_id, '') IS NULL ");
+        }
+        else if (view_id === 'VDMIS_FLD') {
+            console.log("field id = " + resData.field_id);
+            result = await pool.request()
+                .input('field_id', sql.Int, resData.field_id)
+                .input('informer_id', sql.VarChar, personnel_id)
+                .query(TaskListQueryText +
+                    "WHERE ( personnel_fields.field_id = @field_id OR dmis_tasks.informer_id = @informer_id ) " +
+                    "AND (dmis_tasks.task_isinfortask = 1 AND dmis_tasks.status_id <> 0) " +
+                    "AND NULLIF(dmis_tasks.audit_id, '') IS NULL ");
+        }
+        else if (view_id === 'VDMIS_ALL') {
+            console.log("get all activate");
+            result = await pool.request().query(TaskListQueryText +
+                "WHERE (dmis_tasks.task_isinfortask = 1 AND dmis_tasks.status_id <> 0) " +
+                "AND NULLIF(dmis_tasks.audit_id, '') IS NULL ");
+        }
+        console.log("getInformerTaskList complete");
+        console.log("====================");
+        return result.recordsets;
+    }
+    catch (error) {
+        console.error(error);
+        return { "status": "error", "message": error.message };
+    }
+}
+
+async function countInformerTask(personnel_id, view_id) {
+    try {
+
+        console.log("countInformerTask call try connect to server");
+        let pool = await sql.connect(config);
+        console.log("connect complete");
+        let result;
+        let queryText = "SELECT " +
+            "COUNT(CASE WHEN dmis_tasks.status_id = 3 AND dmis_tasks.task_isinfortask = 1 AND audit_id IS NULL then 1 END) AS 'wait', " +
+            "COUNT(CASE WHEN dmis_tasks.status_id = 4 AND dmis_tasks.task_isinfortask = 1 AND audit_id IS NULL then 1 END) AS 'outside', " +
+            "COUNT(CASE WHEN dmis_tasks.status_id = 6 AND dmis_tasks.task_isinfortask = 1 AND audit_id IS NULL then 1 END) AS 'replace' " +
+            "FROM dmis_tasks " +
+            "INNER JOIN personnel_departments ON personnel_departments.department_id = dmis_tasks.issue_department_id " +
+            "INNER JOIN personnel_factions ON personnel_factions.faction_id = personnel_departments.faction_id " +
+            "INNER JOIN personnel_fields ON personnel_fields.field_id = personnel_factions.field_id ";
+
+
+        const resData = await getPersonnelData(personnel_id);
+        if (view_id === 'VDMIS_DPM') {
+            console.log("department id = " + resData.department_id);
+            result = await pool.request()
+                .input('department_id', sql.Int, resData.department_id)
+                .input('informer_id', sql.VarChar, personnel_id)
+                .query(queryText +
+                    "WHERE dmis_tasks.issue_department_id = @department_id OR dmis_tasks.informer_id = @informer_id ");
+        }
+        else if (view_id === 'VDMIS_FAC') {
+            console.log("faction id = " + resData.faction_id);
+            result = await pool.request()
+                .input('faction_id', sql.Int, resData.faction_id)
+                .input('informer_id', sql.VarChar, personnel_id)
+                .query(queryText +
+                    "WHERE personnel_factions.faction_id = @faction_id OR dmis_tasks.informer_id = @informer_id ");
+
+        }
+        else if (view_id === 'VDMIS_FLD') {
+            console.log("field id = " + resData.field_id);
+            result = await pool.request()
+                .input('field_id', sql.Int, resData.field_id)
+                .input('informer_id', sql.VarChar, personnel_id)
+                .query(queryText +
+                    "WHERE personnel_fields.field_id = @field_id OR dmis_tasks.informer_id = @informer_id ");
+        }
+        else if (view_id === 'VDMIS_ALL') {
+            console.log("get all activate");
+            result = await pool.request().query(queryText);
+        }
+
+        console.log("countInformerTask complete");
+        console.log("====================");
+        return result.recordset;
     }
     catch (error) {
         console.error(error);
@@ -982,4 +1084,6 @@ module.exports = {
     getPermitTaskList: getPermitTaskList,
     countPermitTask: countPermitTask,
     getAuditTaskList: getAuditTaskList,
+    getInformerTaskList: getInformerTaskList,
+    countInformerTask: countInformerTask,
 }

@@ -194,6 +194,28 @@ router.route('/getaudittasklist/:personnel_id/:view_id').get((request, response)
     
 });
 
+router.route('/getinformertasklist/:personnel_id/:view_id').get((request, response) => {
+
+    dboperations.getInformerTaskList(request.params.personnel_id, request.params.view_id).then(result => {
+        response.json(result[0]);
+    }).catch(err => {
+        console.error(err);
+        response.setStatus(500);
+    });
+    
+});
+
+router.route('/countinfortask/:personnel_id/:view_id').get((request, response) => {
+
+    dboperations.countInformerTask(request.params.personnel_id, request.params.view_id).then(result => {
+        response.json(result[0]);
+    }).catch(err => {
+        console.error(err);
+        response.setStatus(500);
+    });
+    
+});
+
 var port = process.env.PORT;
 app.listen(port);
 console.log('DMIS API is running at ' + port);
