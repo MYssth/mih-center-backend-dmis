@@ -203,30 +203,32 @@ async function getTaskList(personnel_id, level_id, view_id, showcase) {
         console.log("try connect to server");
         let pool = await sql.connect(config);
         console.log("connect complete");
+        const report = showcase === "report" ? "AND ( NULLIF(dmis_tasks.task_iscomplete, '') IS NULL OR (dmis_tasks.task_isinfortask = 1 AND dmis_tasks.audit_id IS NULL ) ) "
+            : "AND NULLIF(dmis_tasks.task_iscomplete, '') IS NULL ";
         if ((level_id === 'DMIS_IT' || level_id === 'DMIS_MT' || level_id === 'DMIS_MER') && showcase === "false") {
             console.log("level = " + level_id + " not showcase");
             result = await pool.request()
                 .input('level_id', sql.VarChar, level_id)
                 .query(TaskListQueryText + "WHERE dmis_tasks.level_id = @level_id " +
-                    "AND NULLIF(dmis_tasks.task_iscomplete, '') IS NULL ");
+                    report);
         }
         else if (level_id === 'DMIS_HIT' && showcase === 'false') {
             console.log("level = " + level_id + " not showcase");
             result = await pool.request()
                 .query(TaskListQueryText + "WHERE dmis_tasks.level_id = 'DMIS_IT' " +
-                    "AND NULLIF(dmis_tasks.task_iscomplete, '') IS NULL ");
+                    report);
         }
         else if (level_id === 'DMIS_ENV' && showcase === 'false') {
             console.log("level = " + level_id + " not showcase");
             result = await pool.request()
                 .query(TaskListQueryText + "WHERE (dmis_tasks.level_id = 'DMIS_MT' OR dmis_tasks.level_id = 'DMIS_MER') " +
-                    "AND NULLIF(dmis_tasks.task_iscomplete, '') IS NULL ");
+                    report);
         }
         else if (level_id === 'DMIS_ALL' && showcase === 'false') {
             console.log("level = " + level_id + " not showcase");
             result = await pool.request()
                 .query(TaskListQueryText + "WHERE NULLIF(dmis_tasks.status_id_request, '') IS NULL " +
-                    "AND NULLIF(dmis_tasks.task_iscomplete, '') IS NULL ");
+                    report);
         }
         else if (view_id === 'VDMIS_DPM') {
             console.log("department id = " + resData.department_id);
@@ -235,7 +237,7 @@ async function getTaskList(personnel_id, level_id, view_id, showcase) {
                 .input('informer_id', sql.VarChar, personnel_id)
                 .query(TaskListQueryText +
                     "WHERE ( dmis_tasks.issue_department_id = @department_id OR dmis_tasks.informer_id = @informer_id ) AND dmis_tasks.status_id NOT IN (0,5) " +
-                    "AND NULLIF(dmis_tasks.task_iscomplete, '') IS NULL " +
+                    report +
                     "ORDER BY dmis_tasks.task_date_start ");
         }
         else if (view_id === 'VDMIS_FAC') {
@@ -245,7 +247,7 @@ async function getTaskList(personnel_id, level_id, view_id, showcase) {
                 .input('informer_id', sql.VarChar, personnel_id)
                 .query(TaskListQueryText +
                     "WHERE ( personnel_factions.faction_id = @faction_id OR dmis_tasks.informer_id = @informer_id ) AND dmis_tasks.status_id NOT IN (0,5) " +
-                    "AND NULLIF(dmis_tasks.task_iscomplete, '') IS NULL " +
+                    report +
                     "ORDER BY dmis_tasks.task_date_start");
         }
         else if (view_id === 'VDMIS_FLD') {
@@ -255,7 +257,7 @@ async function getTaskList(personnel_id, level_id, view_id, showcase) {
                 .input('informer_id', sql.VarChar, personnel_id)
                 .query(TaskListQueryText +
                     "WHERE ( personnel_fields.field_id = @field_id OR dmis_tasks.informer_id = @informer_id ) AND dmis_tasks.status_id NOT IN (0,5) " +
-                    "AND NULLIF(dmis_tasks.task_iscomplete, '') IS NULL " +
+                    report +
                     "ORDER BY dmis_tasks.task_date_start");
         }
         else if (view_id === 'VDMIS_ALL') {
@@ -451,44 +453,47 @@ async function acceptTask(task) {
                 "WHERE task_id = @task_id AND level_id = @level_id");
         console.log("acceptTask complete");
 
-        let token = "";
+        if (task.level_id !== "DMIS_MT") {
 
-        if (task.level_id === "DMIS_IT") {
-            token = process.env.DMIS_IT_lineToken;
-        }
-        else if (task.level_id === "DMIS_MT") {
-            token = process.env.DMIS_MT_lineToken;
-        }
-        else if (task.level_id === "DMIS_MER") {
-            token = process.env.DMIS_MER_lineToken;
-        }
-        let operatorName = "\nยังไม่ได้ระบุผู้รับผิดชอบงาน";
-        if (task.operator_name !== "") {
-            operatorName = "\nผู้รับผิดชอบ: " + task.operator_name;
-        }
+            let token = "";
 
-        const sendMessage = { "message": "มีการรับงาน/มอบหมายงาน\nเลขที่: " + task.task_id + "\nผู้รับเรื่อง: " + task.receiver_name + "" + operatorName };
+            if (task.level_id === "DMIS_IT") {
+                token = process.env.DMIS_IT_lineToken;
+            }
+            // else if (task.level_id === "DMIS_MT") {
+            //     token = process.env.DMIS_MT_lineToken;
+            // }
+            else if (task.level_id === "DMIS_MER") {
+                token = process.env.DMIS_MER_lineToken;
+            }
+            let operatorName = "\nยังไม่ได้ระบุผู้รับผิดชอบงาน";
+            if (task.operator_name !== "") {
+                operatorName = "\nผู้รับผิดชอบ: " + task.operator_name;
+            }
+
+            const sendMessage = { "message": "มีการรับงาน/มอบหมายงาน\nเลขที่: " + task.task_id + "\nผู้รับเรื่อง: " + task.receiver_name + "" + operatorName };
 
 
-        console.log("try to send message to line notify");
-        console.log("message = " + sendMessage.message);
-        fetch(process.env.lineNotify, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'Authorization': `Bearer ${token}`,
-            },
-            body: new URLSearchParams(sendMessage)
-        })
-            .then((response) => response.json())
-            .then((data) => {
-                console.log(data);
-                console.log("send data to line complete");
-                console.log("====================");
+            console.log("try to send message to line notify");
+            console.log("message = " + sendMessage.message);
+            fetch(process.env.lineNotify, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: new URLSearchParams(sendMessage)
             })
-            .catch((error) => {
-                console.error('Error:', error);
-            });
+                .then((response) => response.json())
+                .then((data) => {
+                    console.log(data);
+                    console.log("send data to line complete");
+                })
+                .catch((error) => {
+                    console.error('Error:', error);
+                });
+        }
+        console.log("====================");
 
         return { status: "ok" };
     }
