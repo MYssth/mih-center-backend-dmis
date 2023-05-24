@@ -40,7 +40,6 @@ const TaskListQueryText = "SELECT ROW_NUMBER() OVER (ORDER BY dmis_tasks.task_id
     "dmis_tasks.status_id_request, " +
     "req.status_name AS status_name_request, " +
     "dmis_tasks.task_iscomplete, " +
-    "is_program_change, " +
     "dmis_tasks.audit_id, " +
     "audit.personnel_firstname AS audit_firstname, " +
     "audit.personnel_lastname AS audit_lastname, " +
@@ -50,7 +49,13 @@ const TaskListQueryText = "SELECT ROW_NUMBER() OVER (ORDER BY dmis_tasks.task_id
     "permit.personnel_firstname AS permit_firstname, " +
     "permit.personnel_lastname AS permit_lastname, " +
     "dmis_tasks.permit_date, " +
-    "personnel_factions.faction_id " +
+    "personnel_factions.faction_id, " +
+    "dmis_tasks.is_program_change, " +
+    "dmis_tasks.complete_note, " +
+    "dmis_tasks.pconfirm_id, " +
+    "dmis_tasks.pconfirm_date, " +
+    "pconfirm.personnel_firstname AS pconfirm_firstname, " +
+    "pconfirm.personnel_lastname AS pconfirm_lastname " +
     "FROM dmis_tasks " +
     "INNER JOIN personnel inf ON inf.personnel_id = dmis_tasks.informer_id " +
     "LEFT JOIN personnel_positions inf_pos ON inf_pos.position_id = inf.position_id " +
@@ -66,7 +71,8 @@ const TaskListQueryText = "SELECT ROW_NUMBER() OVER (ORDER BY dmis_tasks.task_id
     "LEFT JOIN dmis_task_estimation ON dmis_task_estimation.estimation_id = dmis_tasks.estimation_id " +
     "LEFT JOIN personnel audit ON audit.personnel_id = dmis_tasks.audit_id " +
     "LEFT JOIN personnel permit ON permit.personnel_id = dmis_tasks.permit_id " +
-    "LEFT JOIN dmis_task_status req ON req.status_id = dmis_tasks.status_id_request ";
+    "LEFT JOIN dmis_task_status req ON req.status_id = dmis_tasks.status_id_request " +
+    "LEFT JOIN personnel pconfirm ON pconfirm.personnel_id = dmis_tasks.pconfirm_id ";
 
 async function getNextTaskId(level_id) {
     let pool = await sql.connect(config);
@@ -521,21 +527,19 @@ async function processTask(task) {
                 "task_phone_no = @task_phone_no, " +
                 "task_note = @task_note, " +
                 "estimation_id = @estimation_id, " +
-                "task_date_process = GETDATE() ";
-            if (task.category_id === 1) {
-                queryText += ", is_program_change = @is_program_change ";
-            }
+                "task_date_process = GETDATE(), " +
+                "status_id_request = @status_id_request ";
             if (task.status_id_request === 0) {
-                queryText += ", status_id = @status_id_request, task_iscomplete = 1 ";
+                queryText += ", status_id = @status_id_request, task_date_end = GETDATE(), task_iscomplete = 1 ";
             }
-            else if (task.status_id_request !== 2) {
-                queryText += ", status_id_request = @status_id_request ";
-            }
-            else if (task.status_id_request === 2) {
-                queryText += ", status_id = '2', " +
-                    "permit_id = NULL, " +
-                    "permit_date = NULL ";
-            }
+            // else if (task.status_id_request !== 2) {
+            //     queryText += ", status_id_request = @status_id_request ";
+            // }
+            // else if (task.status_id_request === 2) {
+            //     queryText += ", status_id = '2', " +
+            //         "permit_id = NULL, " +
+            //         "permit_date = NULL ";
+            // }
             await pool.request()
                 .input('task_id', sql.VarChar, task.task_id)
                 .input('level_id', sql.VarChar, task.level_id)
@@ -549,7 +553,6 @@ async function processTask(task) {
                 .input('task_phone_no', sql.VarChar, task.task_phone_no)
                 .input('task_note', sql.Text, task.task_note)
                 .input('estimation_id', sql.TinyInt, task.estimation_id)
-                .input('is_program_change', sql.TinyInt, task.is_program_change)
                 .query(queryText + "WHERE task_id = @task_id AND level_id = @level_id");
         }
         else if (task.taskCase === "edit") {
@@ -584,8 +587,10 @@ async function processTask(task) {
                 "status_id_request = NULL, " +
                 "status_id = @status_id_request, " +
                 "permit_id = @permit_id, " +
+                "category_id = @category_id, " +
                 "permit_date = GETDATE() ";
             if (task.status_id_request === 5 || task.status_id_request === 0) {
+                console.log("11111111111111")
                 queryText += ", task_iscomplete = 1, task_date_end = GETDATE() ";
             }
             else if (task.taskCase === "permitEnd") {
@@ -596,6 +601,7 @@ async function processTask(task) {
                 .input('level_id', sql.VarChar, task.level_id)
                 .input('status_id_request', sql.TinyInt, task.status_id_request)
                 .input('permit_id', sql.VarChar, task.permit_id)
+                .input('category_id', sql.TinyInt, task.category_id)
                 .query(queryText + "WHERE task_id = @task_id AND level_id = @level_id");
         }
         else if (task.taskCase === "comment") {
@@ -640,12 +646,43 @@ async function processTask(task) {
                 "operator_id = @operator_id, " +
                 "category_id = @category_id, " +
                 "task_phone_no = @task_phone_no, " +
-                "task_note = @task_note, " +
+                "complete_note = @complete_note, " +
                 "estimation_id = @estimation_id, " +
                 // "task_date_process = GETDATE(), " +
                 "task_date_end = GETDATE() ";
-            if (task.category_id === 1) {
-                queryText += ", is_program_change = @is_program_change "
+            await pool.request()
+                .input('task_id', sql.VarChar, task.task_id)
+                .input('level_id', sql.VarChar, task.level_id)
+                .input('task_solution', sql.Text, task.task_solution)
+                .input('task_cost', sql.VarChar, task.task_cost)
+                .input('task_serialnumber', sql.VarChar, task.task_serialnumber)
+                .input('task_device_id', sql.VarChar, task.task_device_id)
+                .input('operator_id', sql.VarChar, task.operator_id)
+                .input('category_id', sql.TinyInt, task.category_id)
+                .input('task_phone_no', sql.VarChar, task.task_phone_no)
+                .input('complete_note', sql.Text, task.task_note)
+                .input('estimation_id', sql.TinyInt, task.estimation_id)
+                .query(queryText + "WHERE task_id = @task_id AND level_id = @level_id");
+        }
+
+        else if (task.taskCase === "pRequest") {
+            console.log("pRequest task");
+            let queryText = "UPDATE dmis_tasks SET " +
+                "task_solution = @task_solution, " +
+                "task_cost = @task_cost, " +
+                "task_serialnumber = @task_serialnumber, " +
+                "task_device_id = @task_device_id, " +
+                "operator_id = @operator_id, " +
+                "category_id = @category_id, " +
+                "task_phone_no = @task_phone_no, " +
+                "complete_note = @complete_note, " +
+                "estimation_id = @estimation_id, " +
+                "is_program_change = @is_program_change ";
+            if (!task.is_program_change) {
+                queryText += ", task_iscomplete = 1, task_date_end = GETDATE(), status_id = 5 ";
+            }
+            else {
+                queryText += ", status_id_request = 5 ";
             }
             await pool.request()
                 .input('task_id', sql.VarChar, task.task_id)
@@ -657,9 +694,39 @@ async function processTask(task) {
                 .input('operator_id', sql.VarChar, task.operator_id)
                 .input('category_id', sql.TinyInt, task.category_id)
                 .input('task_phone_no', sql.VarChar, task.task_phone_no)
-                .input('task_note', sql.Text, task.task_note)
+                .input('complete_note', sql.Text, task.task_note)
                 .input('estimation_id', sql.TinyInt, task.estimation_id)
-                .input('is_program_change', sql.TinyInt, task.is_program_change)
+                .input('is_program_change', sql.Bit, task.is_program_change)
+                .query(queryText + "WHERE task_id = @task_id AND level_id = @level_id");
+
+        }
+
+        else if (task.taskCase === "pConfirm") {
+            console.log("pConfirm task");
+            let queryText = "UPDATE dmis_tasks SET " +
+                "status_id_request = NULL, " +
+                "status_id = @status_id_request, " +
+                "pconfirm_id = @pconfirm_id, " +
+                "pconfirm_date = GETDATE(), " +
+                "task_iscomplete = 1, task_date_end = GETDATE() ";
+            await pool.request()
+                .input('task_id', sql.VarChar, task.task_id)
+                .input('level_id', sql.VarChar, task.level_id)
+                .input('status_id_request', sql.TinyInt, task.status_id_request)
+                .input('pconfirm_id', sql.VarChar, task.permit_id)
+                .query(queryText + "WHERE task_id = @task_id AND level_id = @level_id");
+        }
+
+        else if (task.taskCase === "pReject") {
+            console.log("pReject task");
+            let queryText = "UPDATE dmis_tasks SET " +
+                "status_id_request = NULL" +
+                ", task_solution = NULL" +
+                ", complete_note = NULL" +
+                ", is_program_change = NULL ";
+            await pool.request()
+                .input('task_id', sql.VarChar, task.task_id)
+                .input('level_id', sql.VarChar, task.level_id)
                 .query(queryText + "WHERE task_id = @task_id AND level_id = @level_id");
         }
 
