@@ -590,7 +590,6 @@ async function processTask(task) {
                 "category_id = @category_id, " +
                 "permit_date = GETDATE() ";
             if (task.status_id_request === 5 || task.status_id_request === 0) {
-                console.log("11111111111111")
                 queryText += ", task_iscomplete = 1, task_date_end = GETDATE() ";
             }
             else if (task.taskCase === "permitEnd") {
@@ -677,9 +676,10 @@ async function processTask(task) {
                 "task_phone_no = @task_phone_no, " +
                 "complete_note = @complete_note, " +
                 "estimation_id = @estimation_id, " +
+                "task_date_end = GETDATE(), " +
                 "is_program_change = @is_program_change ";
             if (!task.is_program_change) {
-                queryText += ", task_iscomplete = 1, task_date_end = GETDATE(), status_id = 5 ";
+                queryText += ", task_iscomplete = 1, status_id = 5 ";
             }
             else {
                 queryText += ", status_id_request = 5 ";
