@@ -1,4 +1,5 @@
-var host = 'localhost';
+// var host = 'localhost';
+var host = '192.168.101.2';
 
 if (process.env.NODE_ENV === 'production') {
     host = process.env.prodHost;
