@@ -533,10 +533,10 @@ async function processTask(task) {
                 "estimation_id = @estimation_id, " +
                 "task_date_process = GETDATE(), " +
                 "status_id_request = @status_id_request ";
-            if (task.status_id_request === 0) {
-                queryText += ", status_id = @status_id_request, task_date_end = GETDATE(), task_iscomplete = 1 ";
-            }
-            else if (task.status_id_request === 5) {
+            // if (task.status_id_request === 0) {
+            //     queryText += ", status_id = @status_id_request, task_date_end = GETDATE(), task_iscomplete = 1 ";
+            // }
+            if (task.status_id_request === 5) {
                 queryText += ", complete_note = @task_note ";
             }
             else if (task.status_id_request === 16) {
