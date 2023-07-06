@@ -539,9 +539,9 @@ async function processTask(task) {
             if (task.status_id_request === 5) {
                 queryText += ", complete_note = @task_note ";
             }
-            else if (task.status_id_request === 16) {
-                queryText += ", "
-            }
+            // else if (task.status_id_request === 16) {
+            //     queryText += ", "
+            // }
             else {
                 queryText += ", task_note = @task_note ";
             }
@@ -1024,7 +1024,7 @@ async function getUserPermitTaskList(personnel_id, view_id) {
                     "WHERE dmis_tasks.issue_department_id = @department_id" +
                     " AND dmis_tasks.category_id = 16" +
                     " AND dmis_tasks.user_permit_id IS NULL" +
-                    " AND status_id <> 0");
+                    " AND dmis_tasks.status_id <> 0");
         }
         else if (view_id === 'VDMIS_FAC') {
             console.log("faction id = " + resData.faction_id);
@@ -1034,7 +1034,7 @@ async function getUserPermitTaskList(personnel_id, view_id) {
                     "WHERE personnel_factions.faction_id = @faction_id" +
                     " AND dmis_tasks.category_id = 16" +
                     " AND dmis_tasks.user_permit_id IS NULL" +
-                    " AND status_id <> 0");
+                    " AND dmis_tasks.status_id <> 0");
         }
         else if (view_id === 'VDMIS_FLD') {
             console.log("field id = " + resData.field_id);
@@ -1044,14 +1044,14 @@ async function getUserPermitTaskList(personnel_id, view_id) {
                     "WHERE personnel_fields.field_id = @field_id" +
                     " AND dmis_tasks.category_id = 16" +
                     " AND dmis_tasks.user_permit_id IS NULL" +
-                    " AND status_id <> 0");
+                    " AND dmis_tasks.status_id <> 0");
         }
         else if (view_id === 'VDMIS_ALL') {
             console.log("get all activate");
             result = await pool.request().query(TaskListQueryText +
                 "WHERE dmis_tasks.category_id = 16" +
                 " AND dmis_tasks.user_permit_id IS NULL" +
-                " AND status_id <> 0");
+                " AND dmis_tasks.status_id <> 0");
         }
 
         console.log("getUserPermitTaskList complete");
@@ -1228,6 +1228,18 @@ async function countInformerTask(personnel_id, view_id) {
     }
 }
 
+async function getVersion() {
+    try {
+
+        return process.env.version;
+
+    }
+    catch (error) {
+        console.error(error);
+        return { "status": "error", "message": error.message };
+    }
+}
+
 module.exports = {
     addTask: addTask,
     getTaskList: getTaskList,
@@ -1247,4 +1259,5 @@ module.exports = {
     getAuditTaskList: getAuditTaskList,
     getInformerTaskList: getInformerTaskList,
     countInformerTask: countInformerTask,
+    getVersion: getVersion,
 }
