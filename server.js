@@ -57,7 +57,7 @@ router
         request.params.showcase
       )
       .then((result) => {
-        response.json(result[0]);
+        response.json(result);
       })
       .catch((err) => {
         console.error(err);
@@ -76,7 +76,7 @@ router
         request.params.showcase
       )
       .then((result) => {
-        response.json(result[0]);
+        response.json(result);
       })
       .catch((err) => {
         console.error(err);
@@ -94,7 +94,7 @@ router
         request.params.level_view
       )
       .then((result) => {
-        response.json(result[0]);
+        response.json(result);
       })
       .catch((err) => {
         console.error(err);
@@ -106,7 +106,7 @@ router.route("/gettask/:task_id/:level_id").get((request, response) => {
   dboperations
     .getTask(request.params.task_id, request.params.level_id)
     .then((result) => {
-      response.json(result[0]);
+      response.json(result);
     })
     .catch((err) => {
       console.error(err);
@@ -144,7 +144,7 @@ router.route("/getoperator/:level_id").get((request, response) => {
   dboperations
     .getOperator(request.params.level_id)
     .then((result) => {
-      response.json(result[0]);
+      response.json(result);
     })
     .catch((err) => {
       console.error(err);
@@ -156,7 +156,7 @@ router.route("/getcategories/:level_id").get((request, response) => {
   dboperations
     .getCategories(request.params.level_id)
     .then((result) => {
-      response.json(result[0]);
+      response.json(result);
     })
     .catch((err) => {
       console.error(err);
@@ -168,7 +168,7 @@ router.route("/getstatus").get((request, response) => {
   dboperations
     .getStatus()
     .then((result) => {
-      response.json(result[0]);
+      response.json(result);
     })
     .catch((err) => {
       console.error(err);
@@ -180,7 +180,7 @@ router.route("/getestimation").get((request, response) => {
   dboperations
     .getEstimation()
     .then((result) => {
-      response.json(result[0]);
+      response.json(result);
     })
     .catch((err) => {
       console.error(err);
@@ -199,7 +199,7 @@ router
         request.params.showcase
       )
       .then((result) => {
-        response.json(result[0]);
+        response.json(result);
       })
       .catch((err) => {
         console.error(err);
@@ -223,7 +223,7 @@ router.route("/countpermittask/:level_id").get((request, response) => {
   dboperations
     .countPermitTask(request.params.level_id)
     .then((result) => {
-      response.json(result[0]);
+      response.json(result);
     })
     .catch((err) => {
       console.error(err);
@@ -254,7 +254,7 @@ router
     dboperations
       .getAuditTaskList(request.params.personnel_id, request.params.view_id)
       .then((result) => {
-        response.json(result[0]);
+        response.json(result);
       })
       .catch((err) => {
         console.error(err);
@@ -268,7 +268,7 @@ router
     dboperations
       .getInformerTaskList(request.params.personnel_id, request.params.view_id)
       .then((result) => {
-        response.json(result[0]);
+        response.json(result);
       })
       .catch((err) => {
         console.error(err);
@@ -282,7 +282,7 @@ router
     dboperations
       .countInformerTask(request.params.personnel_id, request.params.view_id)
       .then((result) => {
-        response.json(result[0]);
+        response.json(result);
       })
       .catch((err) => {
         console.error(err);

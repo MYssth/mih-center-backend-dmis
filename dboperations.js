@@ -21,19 +21,9 @@ const TaskListQueryText =
   "dmis_tasks.status_id, " +
   "dmis_task_status.status_name, " +
   "dmis_tasks.informer_id, " +
-  "inf.personnel_firstname AS informer_firstname, " +
-  "inf.personnel_lastname AS informer_lastname, " +
-  "inf_pos.position_name AS informer_position_name, " +
-  "inf_dpm.department_name AS informer_department_name, " +
-  "inf_fac.faction_name AS informer_faction_name, " +
   "dmis_tasks.issue_department_id, " +
-  "personnel_departments.department_name AS issue_department_name, " +
   "dmis_tasks.receiver_id, " +
-  "rev.personnel_firstname AS receiver_firstname, " +
-  "rev.personnel_lastname AS receiver_lastname, " +
   "dmis_tasks.operator_id, " +
-  "oper.personnel_firstname AS operator_firstname, " +
-  "oper.personnel_lastname AS operator_lastname, " +
   "dmis_tasks.category_id, " +
   "dmis_task_categories.category_name, " +
   "dmis_tasks.estimation_id, " +
@@ -42,48 +32,150 @@ const TaskListQueryText =
   "req.status_name AS status_name_request, " +
   "dmis_tasks.task_iscomplete, " +
   "dmis_tasks.audit_id, " +
-  "audit.personnel_firstname AS audit_firstname, " +
-  "audit.personnel_lastname AS audit_lastname, " +
   "dmis_tasks.audit_date, " +
   "dmis_tasks.audit_comment, " +
   "dmis_tasks.permit_id, " +
-  "permit.personnel_firstname AS permit_firstname, " +
-  "permit.personnel_lastname AS permit_lastname, " +
   "dmis_tasks.permit_date, " +
-  "personnel_factions.faction_id, " +
   "dmis_tasks.is_program_change, " +
   "dmis_tasks.complete_note, " +
   "dmis_tasks.pconfirm_id, " +
   "dmis_tasks.pconfirm_date, " +
-  "pconfirm.personnel_firstname AS pconfirm_firstname, " +
-  "pconfirm.personnel_lastname AS pconfirm_lastname, " +
   "dmis_tasks.osconfirm_id, " +
   "dmis_tasks.osconfirm_date, " +
-  "osconfirm.personnel_firstname AS osconfirm_firstname, " +
-  "osconfirm.personnel_lastname AS osconfirm_lastname, " +
   "dmis_tasks.user_permit_id, " +
-  "dmis_tasks.user_permit_date, " +
-  "upermit.personnel_firstname AS user_permit_firstname, " +
-  "upermit.personnel_lastname AS user_permit_lastname " +
+  "dmis_tasks.user_permit_date " +
   "FROM dmis_tasks " +
-  "INNER JOIN personnel inf ON inf.personnel_id = dmis_tasks.informer_id " +
-  "LEFT JOIN personnel_positions inf_pos ON inf_pos.position_id = inf.position_id " +
-  "LEFT JOIN personnel_departments inf_dpm ON inf_dpm.department_id = inf_pos.department_id " +
-  "LEFT JOIN personnel_factions inf_fac ON inf_fac.faction_id = inf_dpm.faction_id " +
-  "LEFT JOIN personnel rev ON rev.personnel_id = dmis_tasks.receiver_id " +
-  "LEFT JOIN personnel oper ON oper.personnel_id = dmis_tasks.operator_id " +
   "LEFT JOIN dmis_task_status ON dmis_task_status.status_id = dmis_tasks.status_id " +
-  "LEFT JOIN personnel_departments ON personnel_departments.department_id = dmis_tasks.issue_department_id " +
-  "LEFT JOIN personnel_factions ON personnel_factions.faction_id = personnel_departments.faction_id " +
-  "LEFT JOIN personnel_fields ON personnel_fields.field_id = personnel_factions.field_id " +
   "LEFT JOIN dmis_task_categories ON dmis_task_categories.category_id = dmis_tasks.category_id " +
   "LEFT JOIN dmis_task_estimation ON dmis_task_estimation.estimation_id = dmis_tasks.estimation_id " +
-  "LEFT JOIN personnel audit ON audit.personnel_id = dmis_tasks.audit_id " +
-  "LEFT JOIN personnel permit ON permit.personnel_id = dmis_tasks.permit_id " +
-  "LEFT JOIN dmis_task_status req ON req.status_id = dmis_tasks.status_id_request " +
-  "LEFT JOIN personnel pconfirm ON pconfirm.personnel_id = dmis_tasks.pconfirm_id " +
-  "LEFT JOIN personnel osconfirm ON osconfirm.personnel_id = dmis_tasks.osconfirm_id " +
-  "LEFT JOIN personnel upermit ON upermit.personnel_id = dmis_tasks.user_permit_id ";
+  "LEFT JOIN dmis_task_status req ON req.status_id = dmis_tasks.status_id_request ";
+
+async function addHimsData(data) {
+  const himsPsn = await fetch(
+    `http://${process.env.backendHost}:${process.env.himsPort}/api/himspsn/getallpsn`
+  )
+    .then((response) => response.json())
+    .then((data) => {
+      console.log("getAllPSNData complete");
+      return data;
+    })
+    .catch((error) => {
+      if (error.name === "AbortError") {
+        console.log("cancelled");
+      } else {
+        console.error("Error:", error);
+      }
+    });
+  const himsDept = await fetch(
+    `http://${process.env.backendHost}:${process.env.himsPort}/api/himspsn/getalldept`
+  )
+    .then((response) => response.json())
+    .then((data) => {
+      console.log("getAllDept complete");
+      return data;
+    })
+    .catch((error) => {
+      if (error.name === "AbortError") {
+        console.log("cancelled");
+      } else {
+        console.error("Error:", error);
+      }
+    });
+
+  if (data.length !== undefined) {
+    for (let i = 0; i < data.length; i += 1) {
+      let inf = await himsPsn.findIndex(
+        (x) => x.psn_id === data[i].informer_id
+      );
+      let isd = await himsDept.findIndex(
+        (x) => x.dept_id === data[i].issue_department_id
+      );
+      let rev = await himsPsn.findIndex(
+        (x) => x.psn_id === data[i].receiver_id
+      );
+      let oper = await himsPsn.findIndex(
+        (x) => x.psn_id === data[i].operator_id
+      );
+      let audit = await himsPsn.findIndex((x) => x.psn_id === data[i].audit_id);
+      let permit = await himsPsn.findIndex(
+        (x) => x.psn_id === data[i].permit_id
+      );
+      let pcon = await himsPsn.findIndex(
+        (x) => x.psn_id === data[i].pconfirm_id
+      );
+      let oscon = await himsPsn.findIndex(
+        (x) => x.psn_id === data[i].osconfirm_id
+      );
+      let upermit = await himsPsn.findIndex(
+        (x) => x.psn_id === data[i].user_permit_id
+      );
+      await Object.assign(data[i], {
+        informer_firstname: himsPsn[inf]?.fname,
+        informer_lastname: himsPsn[inf]?.lname,
+        informer_position_name: himsPsn[inf]?.pos_name,
+        informer_department_name: himsPsn[inf]?.dept_name,
+        informer_faction_name: himsPsn[inf]?.fac_name,
+        issue_department_name: himsDept[isd]?.dept_name,
+        faction_id: himsDept[isd]?.fac_id,
+        field_id: himsDept[isd]?.fld_id,
+        receiver_firstname: himsPsn[rev]?.fname,
+        receiver_lastname: himsPsn[rev]?.lname,
+        operator_firstname: himsPsn[oper]?.fname,
+        operator_lastname: himsPsn[oper]?.lname,
+        audit_firstname: himsPsn[audit]?.fname,
+        audit_lastname: himsPsn[audit]?.lname,
+        permit_firstname: himsPsn[permit]?.fname,
+        permit_lastname: himsPsn[permit]?.lname,
+        pconfirm_firstname: himsPsn[pcon]?.fname,
+        pconfirm_lastname: himsPsn[pcon]?.lname,
+        osconfirm_firstname: himsPsn[oscon]?.fname,
+        osconfirm_lastname: himsPsn[oscon]?.lname,
+        user_permit_firstname: himsPsn[upermit]?.fname,
+        user_permit_lastname: himsPsn[upermit]?.lname,
+      });
+    }
+  } else {
+    let inf = await himsPsn.findIndex((x) => x.psn_id === data.informer_id);
+    let isd = await himsDept.findIndex(
+      (x) => x.dept_id === data.issue_department_id
+    );
+    let rev = await himsPsn.findIndex((x) => x.psn_id === data.receiver_id);
+    let oper = await himsPsn.findIndex((x) => x.psn_id === data.operator_id);
+    let audit = await himsPsn.findIndex((x) => x.psn_id === data.audit_id);
+    let permit = await himsPsn.findIndex((x) => x.psn_id === data.permit_id);
+    let pcon = await himsPsn.findIndex((x) => x.psn_id === data.pconfirm_id);
+    let oscon = await himsPsn.findIndex((x) => x.psn_id === data.osconfirm_id);
+    let upermit = await himsPsn.findIndex(
+      (x) => x.psn_id === data.user_permit_id
+    );
+
+    await Object.assign(data, {
+      informer_firstname: himsPsn[inf]?.fname,
+      informer_lastname: himsPsn[inf]?.lname,
+      informer_position_name: himsPsn[inf]?.pos_name,
+      informer_department_name: himsPsn[inf]?.dept_name,
+      informer_faction_name: himsPsn[inf]?.fac_name,
+      issue_department_name: himsDept[isd]?.dept_name,
+      faction_id: himsDept[isd]?.fac_id,
+      field_id: himsDept[isd]?.fld_id,
+      receiver_firstname: himsPsn[rev]?.fname,
+      receiver_lastname: himsPsn[rev]?.lname,
+      operator_firstname: himsPsn[oper]?.fname,
+      operator_lastname: himsPsn[oper]?.lname,
+      audit_firstname: himsPsn[audit]?.fname,
+      audit_lastname: himsPsn[audit]?.lname,
+      permit_firstname: himsPsn[permit]?.fname,
+      permit_lastname: himsPsn[permit]?.lname,
+      pconfirm_firstname: himsPsn[pcon]?.fname,
+      pconfirm_lastname: himsPsn[pcon]?.lname,
+      osconfirm_firstname: himsPsn[oscon]?.fname,
+      osconfirm_lastname: himsPsn[oscon]?.lname,
+      user_permit_firstname: himsPsn[upermit]?.fname,
+      user_permit_lastname: himsPsn[upermit]?.lname,
+    });
+  }
+  return data;
+}
 
 async function getNextTaskId(level_id) {
   let pool = await sql.connect(config);
@@ -114,13 +206,10 @@ async function getNextTaskId(level_id) {
   }
 }
 
-async function getPersonnelData(personnel_id) {
+async function getPersonnelData(psn_id) {
   console.log("let getPersonnelData");
-  const controller = new AbortController();
-  const signal = controller.signal;
   const result = await fetch(
-    `http://${process.env.backendHost}:${process.env.psnDataDistPort}/api/psn/getpersonnel/${personnel_id}`,
-    { signal }
+    `http://${process.env.backendHost}:${process.env.himsPort}/api/himspsn/getpsndatabyid/${psn_id}`
   )
     .then((response) => response.json())
     .then((data) => {
@@ -134,7 +223,6 @@ async function getPersonnelData(personnel_id) {
         console.error("Error:", error);
       }
     });
-  controller.abort();
   return result;
 }
 
@@ -162,7 +250,7 @@ async function addTask(task) {
       .input("task_device_id", sql.VarChar, task.task_device_id)
       .input("status_id", sql.TinyInt, 1)
       .input("informer_id", sql.VarChar, task.informer_id)
-      .input("issue_department_id", sql.Int, task.issue_department_id)
+      .input("issue_department_id", sql.VarChar, task.issue_department_id)
       .input("task_phone_no", sql.VarChar, task.phoneNumber)
       .query(
         "INSERT INTO dmis_tasks (task_id, level_id, task_issue, task_date_start, task_serialnumber, task_device_id, status_id, informer_id, issue_department_id, task_phone_no)" +
@@ -282,11 +370,11 @@ async function getTaskList(personnel_id, level_id, view_id, showcase) {
             "WHERE NULLIF(dmis_tasks.status_id_request, '') IS NULL " +
             report
         );
-    } else if (view_id === "VDMIS_DPM" || view_id === "VDMIS_DPMH") {
-      console.log("department id = " + resData.department_id);
+    } else if (view_id === "EMP" || view_id === "HEMP") {
+      console.log("department id = " + resData.dept_id);
       result = await pool
         .request()
-        .input("department_id", sql.Int, resData.department_id)
+        .input("department_id", sql.VarChar, resData.dept_id)
         .input("informer_id", sql.VarChar, personnel_id)
         .query(
           TaskListQueryText +
@@ -294,31 +382,33 @@ async function getTaskList(personnel_id, level_id, view_id, showcase) {
             report +
             "ORDER BY dmis_tasks.task_date_start "
         );
-    } else if (view_id === "VDMIS_FAC") {
-      console.log("faction id = " + resData.faction_id);
+    } else if (view_id === "MGR") {
+      console.log("faction id = " + resData.fac_id);
       result = await pool
         .request()
-        .input("faction_id", sql.Int, resData.faction_id)
         .input("informer_id", sql.VarChar, personnel_id)
         .query(
           TaskListQueryText +
-            "WHERE ( personnel_factions.faction_id = @faction_id OR dmis_tasks.informer_id = @informer_id ) AND dmis_tasks.status_id NOT IN (0,5) " +
+            "WHERE ( dmis_tasks.issue_department_id LIKE '" +
+            resData.fac_id +
+            "%' OR dmis_tasks.informer_id = @informer_id ) AND dmis_tasks.status_id NOT IN (0,5) " +
             report +
             "ORDER BY dmis_tasks.task_date_start"
         );
-    } else if (view_id === "VDMIS_FLD") {
-      console.log("field id = " + resData.field_id);
+    } else if (view_id === "HMGR") {
+      console.log("field id = " + resData.fld_id);
       result = await pool
         .request()
-        .input("field_id", sql.Int, resData.field_id)
         .input("informer_id", sql.VarChar, personnel_id)
         .query(
           TaskListQueryText +
-            "WHERE ( personnel_fields.field_id = @field_id OR dmis_tasks.informer_id = @informer_id ) AND dmis_tasks.status_id NOT IN (0,5) " +
+            "WHERE ( dmis_tasks.issue_department_id LIKE '" +
+            resData.fld_id +
+            "%' OR dmis_tasks.informer_id = @informer_id ) AND dmis_tasks.status_id NOT IN (0,5) " +
             report +
             "ORDER BY dmis_tasks.task_date_start"
         );
-    } else if (view_id === "VDMIS_ALL") {
+    } else if (view_id === "ALL") {
       console.log("get all activate");
       result = await pool
         .request()
@@ -329,7 +419,7 @@ async function getTaskList(personnel_id, level_id, view_id, showcase) {
     }
     console.log("getTaskList complete");
     console.log("====================");
-    return result.recordsets;
+    return addHimsData(result.recordsets[0]);
   } catch (error) {
     console.error(error);
     return { status: "error", message: error.message };
@@ -382,40 +472,42 @@ async function getCompleteTaskList(personnel_id, level_id, view_id, showcase) {
           TaskListQueryText +
             "WHERE dmis_tasks.task_iscomplete = 1 ORDER BY dmis_tasks.task_id DESC"
         );
-    } else if (view_id === "VDMIS_DPM" || view_id === "VDMIS_DPMH") {
-      console.log("department id = " + resData.department_id);
+    } else if (view_id === "EMP" || view_id === "HEMP") {
+      console.log("department id = " + resData.dept_id);
       result = await pool
         .request()
-        .input("department_id", sql.Int, resData.department_id)
+        .input("department_id", sql.Int, resData.dept_id)
         .input("informer_id", sql.VarChar, personnel_id)
         .query(
           TaskListQueryText +
             "WHERE ( dmis_tasks.issue_department_id = @department_id OR dmis_tasks.informer_id = @informer_id ) AND dmis_tasks.task_iscomplete = 1 " +
             "ORDER BY dmis_tasks.task_id DESC"
         );
-    } else if (view_id === "VDMIS_FAC") {
-      console.log("faction id = " + resData.faction_id);
+    } else if (view_id === "MGR") {
+      console.log("faction id = " + resData.fac_id);
       result = await pool
         .request()
-        .input("faction_id", sql.Int, resData.faction_id)
         .input("informer_id", sql.VarChar, personnel_id)
         .query(
           TaskListQueryText +
-            "WHERE ( personnel_factions.faction_id = @faction_id OR dmis_tasks.informer_id = @informer_id ) AND dmis_tasks.task_iscomplete = 1 " +
+            "WHERE ( dmis_tasks.issue_department_id LIKE '" +
+            resData.fac_id +
+            "%' OR dmis_tasks.informer_id = @informer_id ) AND dmis_tasks.task_iscomplete = 1 " +
             "ORDER BY dmis_tasks.task_id DESC"
         );
-    } else if (view_id === "VDMIS_FLD") {
-      console.log("field id = " + resData.field_id);
+    } else if (view_id === "HMGR") {
+      console.log("field id = " + resData.fld_id);
       result = await pool
         .request()
-        .input("field_id", sql.Int, resData.field_id)
         .input("informer_id", sql.VarChar, personnel_id)
         .query(
           TaskListQueryText +
-            "WHERE ( personnel_fields.field_id = @field_id OR dmis_tasks.informer_id = @informer_id ) AND dmis_tasks.task_iscomplete = 1 " +
+            "WHERE ( dmis_tasks.issue_department_id LIKE '" +
+            resData.fld_id +
+            "%' OR dmis_tasks.informer_id = @informer_id ) AND dmis_tasks.task_iscomplete = 1 " +
             "ORDER BY dmis_tasks.task_id DESC"
         );
-    } else if (view_id === "VDMIS_ALL") {
+    } else if (view_id === "ALL") {
       console.log("get all activate");
       result = await pool
         .request()
@@ -427,7 +519,7 @@ async function getCompleteTaskList(personnel_id, level_id, view_id, showcase) {
 
     console.log("getCompleteTaskList complete");
     console.log("====================");
-    return result.recordsets;
+    return addHimsData(result.recordsets[0]);
   } catch (error) {
     console.error(error);
     return { status: "error", message: error.message };
@@ -455,11 +547,11 @@ async function getAllTaskList(personnel_id, level_id, view_id) {
     } else if (level_id === "DMIS_HIT") {
       itmtQuery = "OR dmis_tasks.level_id = 'DMIS_IT'";
     }
-    if (view_id === "VDMIS_DPM" || view_id === "VDMIS_DPMH") {
-      console.log("department id = " + resData.department_id);
+    if (view_id === "EMP" || view_id === "HEMP") {
+      console.log("department id = " + resData.dept_id);
       result = await pool
         .request()
-        .input("department_id", sql.Int, resData.department_id)
+        .input("department_id", sql.VarChar, resData.dept_id)
         .input("informer_id", sql.VarChar, personnel_id)
         .query(
           TaskListQueryText +
@@ -468,33 +560,35 @@ async function getAllTaskList(personnel_id, level_id, view_id) {
             " " +
             "ORDER BY dmis_tasks.task_id DESC"
         );
-    } else if (view_id === "VDMIS_FAC") {
-      console.log("faction id = " + resData.faction_id);
+    } else if (view_id === "MGR") {
+      console.log("faction id = " + resData.fac_id);
       result = await pool
         .request()
-        .input("faction_id", sql.Int, resData.faction_id)
         .input("informer_id", sql.VarChar, personnel_id)
         .query(
           TaskListQueryText +
-            "WHERE personnel_factions.faction_id = @faction_id OR dmis_tasks.informer_id = @informer_id " +
+            "WHERE dmis_tasks.issue_department_id LIKE '" +
+            resData.fac_id +
+            "%' OR dmis_tasks.informer_id = @informer_id " +
             itmtQuery +
             " " +
             "ORDER BY dmis_tasks.task_id DESC"
         );
-    } else if (view_id === "VDMIS_FLD") {
-      console.log("field id = " + resData.field_id);
+    } else if (view_id === "HMGR") {
+      console.log("field id = " + resData.fld_id);
       result = await pool
         .request()
-        .input("field_id", sql.Int, resData.field_id)
         .input("informer_id", sql.VarChar, personnel_id)
         .query(
           TaskListQueryText +
-            "WHERE personnel_fields.field_id = @field_id OR dmis_tasks.informer_id = @informer_id " +
+            "WHERE dmis_tasks.issue_department_id LIKE '" +
+            resData.fld_id +
+            "%' OR dmis_tasks.informer_id = @informer_id " +
             itmtQuery +
             " " +
             "ORDER BY dmis_tasks.task_id DESC"
         );
-    } else if (view_id === "VDMIS_ALL") {
+    } else if (view_id === "ALL") {
       console.log("get all activate");
       result = await pool
         .request()
@@ -503,7 +597,7 @@ async function getAllTaskList(personnel_id, level_id, view_id) {
 
     console.log("getAllTaskList complete");
     console.log("====================");
-    return result.recordsets;
+    return addHimsData(result.recordsets[0]);
   } catch (error) {
     console.error(error);
     return { status: "error", message: error.message };
@@ -530,7 +624,7 @@ async function getTask(task_id, level_id) {
       );
     console.log("getTask complete");
     console.log("====================");
-    return result.recordset;
+    return result.recordset[0];
   } catch (error) {
     console.error(error);
     return { status: "error", message: error.message };
@@ -871,6 +965,7 @@ async function processTask(task) {
             ", complete_note = @complete_note" +
             ", estimation_id = @estimation_id" +
             ", task_date_end = GETDATE()" +
+            ", status_id_request = 5" +
             "WHERE task_id = @task_id AND level_id = @level_id"
         );
     } else if (task.taskCase === "osConfirm") {
@@ -878,7 +973,6 @@ async function processTask(task) {
       let queryText =
         "UPDATE dmis_tasks SET " +
         "status_id_request = NULL, " +
-        "status_id = @status_id_request, " +
         "osconfirm_id = @osconfirm_id, " +
         "osconfirm_date = GETDATE(), " +
         "task_iscomplete = 1 ";
@@ -920,16 +1014,31 @@ async function getOperator(level_id) {
     );
     let pool = await sql.connect(config);
     console.log("connect complete");
-    let levelCheck = "personnel_level_list.level_id = @level_id";
+    const himsPsn = await fetch(
+      `http://${process.env.backendHost}:${process.env.himsPort}/api/himspsn/getallpsn`
+    )
+      .then((response) => response.json())
+      .then((data) => {
+        console.log("getAllPSNData complete");
+        return data;
+      })
+      .catch((error) => {
+        if (error.name === "AbortError") {
+          console.log("cancelled");
+        } else {
+          console.error("Error:", error);
+        }
+      });
+    let levelCheck = "psn_lv_list.lv_id = @level_id";
     if (level_id === "DMIS_MT" || level_id === "DMIS_MER") {
       levelCheck =
-        "personnel_level_list.level_id = @level_id OR personnel_level_list.level_id = 'DMIS_ENV'";
+        "psn_lv_list.lv_id = @level_id OR psn_lv_list.lv_id = 'DMIS_ENV'";
     } else if (level_id === "DMIS_ENV") {
       levelCheck =
-        "personnel_level_list.level_id = 'DMIS_ENV' OR personnel_level_list.level_id = 'DMIS_MT' OR personnel_level_list.level_id = 'DMIS_MER'";
+        "psn_lv_list.lv_id = 'DMIS_ENV' OR psn_lv_list.lv_id = 'DMIS_MT' OR psn_lv_list.lv_id = 'DMIS_MER'";
     } else if (level_id === "DMIS_HIT" || level_id === "DMIS_IT") {
       levelCheck =
-        "personnel_level_list.level_id = 'DMIS_HIT' OR personnel_level_list.level_id = 'DMIS_IT'";
+        "psn_lv_list.lv_id = 'DMIS_HIT' OR psn_lv_list.lv_id = 'DMIS_IT'";
     } else if (level_id === "DMIS_ALL") {
       levelCheck = "1=1";
     }
@@ -937,14 +1046,30 @@ async function getOperator(level_id) {
       .request()
       .input("level_id", sql.VarChar, level_id)
       .query(
-        "SELECT personnel.personnel_id, personnel.personnel_firstname, personnel.personnel_lastname, personnel_level_list.level_id FROM personnel " +
-          "INNER JOIN personnel_level_list ON personnel_level_list.personnel_id = personnel.personnel_id " +
+        "SELECT psn.id, psn_lv_list.lv_id FROM psn " +
+          "INNER JOIN psn_lv_list ON psn_lv_list.psn_id = psn.id " +
           "WHERE " +
           levelCheck
       );
+    const psnList = result.recordsets[0];
+    let tResult = [];
+
+    for (let i = 0; i < psnList.length; i += 1) {
+      for (let n = 0; n < himsPsn.length; n += 1) {
+        if (psnList[i].id === himsPsn[n].psn_id) {
+          await tResult.push({
+            personnel_id: psnList[i].id,
+            level_id: psnList[i].lv_id,
+            personnel_firstname: himsPsn[n].fname,
+            personnel_lastname: himsPsn[n].lname,
+          });
+          break;
+        }
+      }
+    }
     console.log("getOperator complete");
     console.log("====================");
-    return result.recordsets;
+    return tResult;
   } catch (error) {
     console.error(error);
     return { status: "error", message: error.message };
@@ -970,7 +1095,7 @@ async function getCategories(level_id) {
       .query("SELECT * FROM dmis_task_categories WHERE level_id = @level_id");
     console.log("getCategories complete");
     console.log("====================");
-    return result.recordsets;
+    return result.recordsets[0];
   } catch (error) {
     console.error(error);
     return { status: "error", message: error.message };
@@ -987,7 +1112,7 @@ async function getStatus() {
       .query("SELECT * FROM dmis_task_status WHERE status_id NOT IN (1)");
     console.log("getStatus complete");
     console.log("====================");
-    return result.recordsets;
+    return result.recordsets[0];
   } catch (error) {
     console.error(error);
     return { status: "error", message: error.message };
@@ -1004,7 +1129,7 @@ async function getEstimation() {
       .query("SELECT * FROM dmis_task_estimation");
     console.log("getEstimation complete");
     console.log("====================");
-    return result.recordsets;
+    return result.recordsets[0];
   } catch (error) {
     console.error(error);
     return { status: "error", message: error.message };
@@ -1025,14 +1150,7 @@ async function countTask(personnel_id, level_id, view_id, showcase) {
       "COUNT(CASE WHEN dmis_tasks.status_id = 4 AND dmis_tasks.task_iscomplete IS NULL then 1 END) AS 'outside', " +
       "COUNT(CASE WHEN dmis_tasks.status_id = 6 AND dmis_tasks.task_iscomplete IS NULL then 1 END) AS 'replace', " +
       "COUNT(CASE WHEN dmis_tasks.task_iscomplete = 1 then 1 END) AS 'complete' " +
-      "FROM dmis_tasks " +
-      "INNER JOIN personnel inf ON inf.personnel_id = dmis_tasks.informer_id " +
-      "LEFT JOIN personnel rev ON rev.personnel_id = dmis_tasks.receiver_id " +
-      "LEFT JOIN personnel oper ON oper.personnel_id = dmis_tasks.operator_id " +
-      "INNER JOIN dmis_task_status ON dmis_task_status.status_id = dmis_tasks.status_id " +
-      "INNER JOIN personnel_departments ON personnel_departments.department_id = dmis_tasks.issue_department_id " +
-      "INNER JOIN personnel_factions ON personnel_factions.faction_id = personnel_departments.faction_id " +
-      "INNER JOIN personnel_fields ON personnel_fields.field_id = personnel_factions.field_id ";
+      "FROM dmis_tasks ";
 
     const resData = await getPersonnelData(personnel_id);
     if (
@@ -1067,44 +1185,46 @@ async function countTask(personnel_id, level_id, view_id, showcase) {
         .request()
         .input("level_id", sql.VarChar, level_id)
         .query(queryText + "WHERE dmis_tasks.status_id_request IS NULL ");
-    } else if (view_id === "VDMIS_DPM" || view_id === "VDMIS_DPMH") {
-      console.log("department id = " + resData.department_id);
+    } else if (view_id === "EMP" || view_id === "HEMP") {
+      console.log("department id = " + resData.dept_id);
       result = await pool
         .request()
-        .input("department_id", sql.Int, resData.department_id)
+        .input("department_id", sql.VarChar, resData.dept_id)
         .input("informer_id", sql.VarChar, personnel_id)
         .query(
           queryText +
             "WHERE dmis_tasks.issue_department_id = @department_id OR dmis_tasks.informer_id = @informer_id "
         );
-    } else if (view_id === "VDMIS_FAC") {
-      console.log("faction id = " + resData.faction_id);
+    } else if (view_id === "MGR") {
+      console.log("faction id = " + resData.fac_id);
       result = await pool
         .request()
-        .input("faction_id", sql.Int, resData.faction_id)
         .input("informer_id", sql.VarChar, personnel_id)
         .query(
           queryText +
-            "WHERE personnel_factions.faction_id = @faction_id OR dmis_tasks.informer_id = @informer_id "
+            "WHERE dmis_tasks.issue_department_id LIKE '" +
+            resData.fac_id +
+            "%' OR dmis_tasks.informer_id = @informer_id "
         );
-    } else if (view_id === "VDMIS_FLD") {
-      console.log("field id = " + resData.field_id);
+    } else if (view_id === "HMGR") {
+      console.log("field id = " + resData.fld_id);
       result = await pool
         .request()
-        .input("field_id", sql.Int, resData.field_id)
         .input("informer_id", sql.VarChar, personnel_id)
         .query(
           queryText +
-            "WHERE personnel_fields.field_id = @field_id OR dmis_tasks.informer_id = @informer_id "
+            "WHERE dmis_tasks.issue_department_id LIKE '" +
+            resData.fld_id +
+            "%' OR dmis_tasks.informer_id = @informer_id "
         );
-    } else if (view_id === "VDMIS_ALL") {
+    } else if (view_id === "ALL") {
       console.log("get all activate");
       result = await pool.request().query(queryText);
     }
 
     console.log("countTask complete");
     console.log("====================");
-    return result.recordset;
+    return result.recordset[0];
   } catch (error) {
     console.error(error);
     return { status: "error", message: error.message };
@@ -1113,7 +1233,6 @@ async function countTask(personnel_id, level_id, view_id, showcase) {
 
 async function getPermitTaskList(level_id) {
   try {
-    // console.log(ss)asda23
     console.log("getPermitTaskList call try connect to server");
     let pool = await sql.connect(config);
     console.log("connect complete");
@@ -1142,7 +1261,7 @@ async function getPermitTaskList(level_id) {
     }
     console.log("getPermitTaskList complete");
     console.log("====================");
-    return result;
+    return addHimsData(result);
   } catch (error) {
     console.error(error);
     return { status: "error", message: error.message };
@@ -1170,7 +1289,7 @@ async function countPermitTask(level_id) {
     }
     console.log("countPermitTask complete");
     console.log("====================");
-    return result.recordset;
+    return result.recordset[0];
   } catch (error) {
     console.error(error);
     return { status: "error", message: error.message };
@@ -1184,12 +1303,12 @@ async function getUserPermitTaskList(personnel_id, view_id) {
     console.log("try connect to server");
     let pool = await sql.connect(config);
     console.log("connect complete");
-
-    if (view_id === "VDMIS_DPMH") {
-      console.log("department id = " + resData.department_id);
+    let result;
+    if (view_id === "HEMP") {
+      console.log("department id = " + resData.dept_id);
       result = await pool
         .request()
-        .input("department_id", sql.Int, resData.department_id)
+        .input("department_id", sql.VarChar, resData.dept_id)
         .query(
           TaskListQueryText +
             "WHERE dmis_tasks.issue_department_id = @department_id" +
@@ -1197,31 +1316,33 @@ async function getUserPermitTaskList(personnel_id, view_id) {
             " AND dmis_tasks.user_permit_id IS NULL" +
             " AND dmis_tasks.status_id <> 0"
         );
-    } else if (view_id === "VDMIS_FAC") {
-      console.log("faction id = " + resData.faction_id);
+    } else if (view_id === "MGR") {
+      console.log("faction id = " + resData.fac_id);
       result = await pool
         .request()
-        .input("faction_id", sql.Int, resData.faction_id)
         .query(
           TaskListQueryText +
-            "WHERE personnel_factions.faction_id = @faction_id" +
+            "WHERE dmis_tasks.issue_department_id LIKE '" +
+            resData.fac_id +
+            "%'" +
             " AND dmis_tasks.category_id = 16" +
             " AND dmis_tasks.user_permit_id IS NULL" +
             " AND dmis_tasks.status_id <> 0"
         );
-    } else if (view_id === "VDMIS_FLD") {
-      console.log("field id = " + resData.field_id);
+    } else if (view_id === "HMGR") {
+      console.log("field id = " + resData.fld_id);
       result = await pool
         .request()
-        .input("field_id", sql.Int, resData.field_id)
         .query(
           TaskListQueryText +
-            "WHERE personnel_fields.field_id = @field_id" +
+            "WHERE dmis_tasks.issue_department_id LIKE '" +
+            resData.fld_id +
+            "%'" +
             " AND dmis_tasks.category_id = 16" +
             " AND dmis_tasks.user_permit_id IS NULL" +
             " AND dmis_tasks.status_id <> 0"
         );
-    } else if (view_id === "VDMIS_ALL") {
+    } else if (view_id === "ALL") {
       console.log("get all activate");
       result = await pool
         .request()
@@ -1249,11 +1370,11 @@ async function getAuditTaskList(personnel_id, view_id) {
     console.log("try connect to server");
     let pool = await sql.connect(config);
     console.log("connect complete");
-    if (view_id === "VDMIS_DPM" || view_id === "VDMIS_DPMH") {
-      console.log("department id = " + resData.department_id);
+    if (view_id === "EMP" || view_id === "HEMP") {
+      console.log("department id = " + resData.dept_id);
       result = await pool
         .request()
-        .input("department_id", sql.Int, resData.department_id)
+        .input("department_id", sql.VarChar, resData.dept_id)
         .input("informer_id", sql.VarChar, personnel_id)
         .query(
           TaskListQueryText +
@@ -1261,31 +1382,33 @@ async function getAuditTaskList(personnel_id, view_id) {
             "AND (dmis_tasks.task_iscomplete = 1 AND dmis_tasks.status_id <> 0) AND dmis_tasks.task_isinfortask IS NULL " +
             "AND NULLIF(dmis_tasks.audit_id, '') IS NULL "
         );
-    } else if (view_id === "VDMIS_FAC") {
-      console.log("faction id = " + resData.faction_id);
+    } else if (view_id === "MGR") {
+      console.log("faction id = " + resData.fac_id);
       result = await pool
         .request()
-        .input("faction_id", sql.Int, resData.faction_id)
         .input("informer_id", sql.VarChar, personnel_id)
         .query(
           TaskListQueryText +
-            "WHERE ( personnel_factions.faction_id = @faction_id OR dmis_tasks.informer_id = @informer_id ) " +
+            "WHERE ( dmis_tasks.issue_department_id LIKE '" +
+            resData.fac_id +
+            "%' OR dmis_tasks.informer_id = @informer_id ) " +
             "AND (dmis_tasks.task_iscomplete = 1 AND dmis_tasks.status_id <> 0) AND dmis_tasks.task_isinfortask IS NULL " +
             "AND NULLIF(dmis_tasks.audit_id, '') IS NULL "
         );
-    } else if (view_id === "VDMIS_FLD") {
-      console.log("field id = " + resData.field_id);
+    } else if (view_id === "HMGR") {
+      console.log("field id = " + resData.fld_id);
       result = await pool
         .request()
-        .input("field_id", sql.Int, resData.field_id)
         .input("informer_id", sql.VarChar, personnel_id)
         .query(
           TaskListQueryText +
-            "WHERE ( personnel_fields.field_id = @field_id OR dmis_tasks.informer_id = @informer_id ) " +
+            "WHERE ( dmis_tasks.issue_department_id LIKE '" +
+            resData.fld_id +
+            "%' OR dmis_tasks.informer_id = @informer_id ) " +
             "AND (dmis_tasks.task_iscomplete = 1 AND dmis_tasks.status_id <> 0) AND dmis_tasks.task_isinfortask IS NULL " +
             "AND NULLIF(dmis_tasks.audit_id, '') IS NULL "
         );
-    } else if (view_id === "VDMIS_ALL") {
+    } else if (view_id === "ALL") {
       console.log("get all activate");
       result = await pool
         .request()
@@ -1297,7 +1420,7 @@ async function getAuditTaskList(personnel_id, view_id) {
     }
     console.log("getAuditTaskList complete");
     console.log("====================");
-    return result.recordsets;
+    return addHimsData(result.recordsets[0]);
   } catch (error) {
     console.error(error);
     return { status: "error", message: error.message };
@@ -1311,11 +1434,11 @@ async function getInformerTaskList(personnel_id, view_id) {
     console.log("try connect to server");
     let pool = await sql.connect(config);
     console.log("connect complete");
-    if (view_id === "VDMIS_DPM" || view_id === "VDMIS_DPMH") {
-      console.log("department id = " + resData.department_id);
+    if (view_id === "EMP" || view_id === "HEMP") {
+      console.log("department id = " + resData.dept_id);
       result = await pool
         .request()
-        .input("department_id", sql.Int, resData.department_id)
+        .input("department_id", sql.VarChar, resData.dept_id)
         .input("informer_id", sql.VarChar, personnel_id)
         .query(
           TaskListQueryText +
@@ -1323,31 +1446,35 @@ async function getInformerTaskList(personnel_id, view_id) {
             "AND (dmis_tasks.task_isinfortask = 1 AND dmis_tasks.status_id <> 0) " +
             "AND NULLIF(dmis_tasks.audit_id, '') IS NULL "
         );
-    } else if (view_id === "VDMIS_FAC") {
-      console.log("faction id = " + resData.faction_id);
+    } else if (view_id === "MGR") {
+      console.log("faction id = " + resData.fac_id);
       result = await pool
         .request()
-        .input("faction_id", sql.Int, resData.faction_id)
         .input("informer_id", sql.VarChar, personnel_id)
         .query(
           TaskListQueryText +
-            "WHERE ( personnel_factions.faction_id = @faction_id OR dmis_tasks.informer_id = @informer_id ) " +
+            "WHERE ( dmis_tasks.issue_department_id LIKE '" +
+            resData.fac_id +
+            "%'" +
+            " OR dmis_tasks.informer_id = @informer_id ) " +
             "AND (dmis_tasks.task_isinfortask = 1 AND dmis_tasks.status_id <> 0) " +
             "AND NULLIF(dmis_tasks.audit_id, '') IS NULL "
         );
-    } else if (view_id === "VDMIS_FLD") {
-      console.log("field id = " + resData.field_id);
+    } else if (view_id === "HMGR") {
+      console.log("field id = " + resData.fld_id);
       result = await pool
         .request()
-        .input("field_id", sql.Int, resData.field_id)
         .input("informer_id", sql.VarChar, personnel_id)
         .query(
           TaskListQueryText +
-            "WHERE ( personnel_fields.field_id = @field_id OR dmis_tasks.informer_id = @informer_id ) " +
+            "WHERE ( dmis_tasks.issue_department_id LIKE '" +
+            resData.fld_id +
+            "%'" +
+            " OR dmis_tasks.informer_id = @informer_id ) " +
             "AND (dmis_tasks.task_isinfortask = 1 AND dmis_tasks.status_id <> 0) " +
             "AND NULLIF(dmis_tasks.audit_id, '') IS NULL "
         );
-    } else if (view_id === "VDMIS_ALL") {
+    } else if (view_id === "ALL") {
       console.log("get all activate");
       result = await pool
         .request()
@@ -1359,7 +1486,7 @@ async function getInformerTaskList(personnel_id, view_id) {
     }
     console.log("getInformerTaskList complete");
     console.log("====================");
-    return result.recordsets;
+    return addHimsData(result.recordsets[0]);
   } catch (error) {
     console.error(error);
     return { status: "error", message: error.message };
@@ -1377,50 +1504,54 @@ async function countInformerTask(personnel_id, view_id) {
       "COUNT(CASE WHEN dmis_tasks.status_id = 3 AND dmis_tasks.task_isinfortask = 1 AND audit_id IS NULL then 1 END) AS 'wait', " +
       "COUNT(CASE WHEN dmis_tasks.status_id = 4 AND dmis_tasks.task_isinfortask = 1 AND audit_id IS NULL then 1 END) AS 'outside', " +
       "COUNT(CASE WHEN dmis_tasks.status_id = 6 AND dmis_tasks.task_isinfortask = 1 AND audit_id IS NULL then 1 END) AS 'replace' " +
-      "FROM dmis_tasks " +
-      "INNER JOIN personnel_departments ON personnel_departments.department_id = dmis_tasks.issue_department_id " +
-      "INNER JOIN personnel_factions ON personnel_factions.faction_id = personnel_departments.faction_id " +
-      "INNER JOIN personnel_fields ON personnel_fields.field_id = personnel_factions.field_id ";
+      "FROM dmis_tasks ";
+    // "INNER JOIN personnel_departments ON personnel_departments.department_id = dmis_tasks.issue_department_id " +
+    // "INNER JOIN personnel_factions ON personnel_factions.faction_id = personnel_departments.faction_id " +
+    // "INNER JOIN personnel_fields ON personnel_fields.field_id = personnel_factions.field_id ";
 
     const resData = await getPersonnelData(personnel_id);
-    if (view_id === "VDMIS_DPM" || view_id === "VDMIS_DPMH") {
-      console.log("department id = " + resData.department_id);
+    if (view_id === "EMP" || view_id === "HEMP") {
+      console.log("department id = " + resData.dept_id);
       result = await pool
         .request()
-        .input("department_id", sql.Int, resData.department_id)
+        .input("department_id", sql.VarChar, resData.dept_id)
         .input("informer_id", sql.VarChar, personnel_id)
         .query(
           queryText +
             "WHERE dmis_tasks.issue_department_id = @department_id OR dmis_tasks.informer_id = @informer_id "
         );
-    } else if (view_id === "VDMIS_FAC") {
-      console.log("faction id = " + resData.faction_id);
+    } else if (view_id === "MGR") {
+      console.log("faction id = " + resData.fac_id);
       result = await pool
         .request()
-        .input("faction_id", sql.Int, resData.faction_id)
         .input("informer_id", sql.VarChar, personnel_id)
         .query(
           queryText +
-            "WHERE personnel_factions.faction_id = @faction_id OR dmis_tasks.informer_id = @informer_id "
+            "WHERE dmis_tasks.issue_department_id LIKE '" +
+            resData.fac_id +
+            "%'" +
+            " OR dmis_tasks.informer_id = @informer_id "
         );
-    } else if (view_id === "VDMIS_FLD") {
-      console.log("field id = " + resData.field_id);
+    } else if (view_id === "HMGR") {
+      console.log("field id = " + resData.fld_id);
       result = await pool
         .request()
-        .input("field_id", sql.Int, resData.field_id)
         .input("informer_id", sql.VarChar, personnel_id)
         .query(
           queryText +
-            "WHERE personnel_fields.field_id = @field_id OR dmis_tasks.informer_id = @informer_id "
+            "WHERE dmis_tasks.issue_department_id LIKE '" +
+            resData.fld_id +
+            "%'" +
+            " OR dmis_tasks.informer_id = @informer_id "
         );
-    } else if (view_id === "VDMIS_ALL") {
+    } else if (view_id === "ALL") {
       console.log("get all activate");
       result = await pool.request().query(queryText);
     }
 
     console.log("countInformerTask complete");
     console.log("====================");
-    return result.recordset;
+    return result.recordset[0];
   } catch (error) {
     console.error(error);
     return { status: "error", message: error.message };
