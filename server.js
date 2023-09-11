@@ -24,7 +24,7 @@ router.use((request, response, next) => {
   response.setHeader("Access-Control-Allow-Headers", "Content-Type");
   response.setHeader("Access-Control-Allow-Credentials", true);
 
-//   console.log("middleware");
+  //   console.log("middleware");
   next();
 });
 
@@ -281,6 +281,24 @@ router
   .get((request, response) => {
     dboperations
       .countInformerTask(request.params.personnel_id, request.params.view_id)
+      .then((result) => {
+        response.json(result);
+      })
+      .catch((err) => {
+        console.error(err);
+        response.setStatus(500);
+      });
+  });
+
+router
+  .route("/getnoti/:personnel_id/:level_id/:view_id")
+  .get((request, response) => {
+    dboperations
+      .getNoti(
+        request.params.personnel_id,
+        request.params.level_id,
+        request.params.view_id
+      )
       .then((result) => {
         response.json(result);
       })
