@@ -1292,7 +1292,7 @@ async function countPermitTask(level_id) {
 }
 
 const usrPermitCon =
-  " WHERE dmis_tasks.issue_department_id LIKE '@dept_id%' AND dmis_tasks.category_id = 16" +
+  " WHERE dmis_tasks.issue_department_id LIKE @dept_id AND dmis_tasks.category_id = 16" +
   " AND dmis_tasks.user_permit_id IS NULL AND dmis_tasks.status_id <> 0";
 
 const usrPermitALLCon =
@@ -1320,7 +1320,7 @@ async function getUserPermitTaskList(personnel_id, view_id) {
     } else {
       result = await pool
         .request()
-        .input("dept_id", sql.VarChar, dept_id)
+        .input("dept_id", sql.VarChar, `${dept_id}%`)
         .query(TaskListQueryText + usrPermitCon);
     }
 
@@ -1334,7 +1334,7 @@ async function getUserPermitTaskList(personnel_id, view_id) {
 }
 
 const auditCon =
-  " WHERE ( dmis_tasks.issue_department_id LIKE '@dept_id%' OR dmis_tasks.informer_id = @informer_id ) " +
+  " WHERE ( dmis_tasks.issue_department_id LIKE @dept_id OR dmis_tasks.informer_id = @informer_id ) " +
   "AND (dmis_tasks.task_iscomplete = 1 AND dmis_tasks.status_id <> 0) AND dmis_tasks.task_isinfortask IS NULL " +
   "AND NULLIF(dmis_tasks.audit_id, '') IS NULL ";
 
@@ -1365,7 +1365,7 @@ async function getAuditTaskList(personnel_id, view_id) {
       result = await pool
         .request()
         .input("informer_id", sql.VarChar, personnel_id)
-        .input("dept_id", sql.VarChar, dept_id)
+        .input("dept_id", sql.VarChar, `${dept_id}%`)
         .query(TaskListQueryText + auditCon);
     }
     console.log("getAuditTaskList complete");
@@ -1378,7 +1378,7 @@ async function getAuditTaskList(personnel_id, view_id) {
 }
 
 const informerTaskCon =
-  " WHERE ( dmis_tasks.issue_department_id LIKE '@dept_id%' OR dmis_tasks.informer_id = @informer_id ) " +
+  " WHERE ( dmis_tasks.issue_department_id LIKE @dept_id OR dmis_tasks.informer_id = @informer_id ) " +
   "AND (dmis_tasks.task_isinfortask = 1 AND dmis_tasks.status_id <> 0) AND NULLIF(dmis_tasks.audit_id, '') IS NULL ";
 
 const informerTaskALLCon =
@@ -1400,7 +1400,6 @@ async function getInformerTaskList(personnel_id, view_id) {
     } else if (view_id === "HMGR") {
       dept_id = await resData.fld_id;
     }
-
     if (view_id === "ALL") {
       console.log("get all activate");
       result = await pool
@@ -1409,7 +1408,7 @@ async function getInformerTaskList(personnel_id, view_id) {
     } else {
       result = await pool
         .request()
-        .input("dept_id", sql.VarChar, dept_id)
+        .input("dept_id", sql.VarChar, `${dept_id}%`)
         .input("informer_id", sql.VarChar, personnel_id)
         .query(TaskListQueryText + informerTaskCon);
     }
@@ -1530,18 +1529,18 @@ async function getNoti(personnel_id, level_id, view_id) {
       temp = await pool
         .request()
         .input("informer_id", sql.VarChar, personnel_id)
-        .input("dept_id", sql.VarChar, dept_id)
+        .input("dept_id", sql.VarChar, `${dept_id}%`)
         .query("SELECT COUNT(*) AS audit FROM dmis_tasks" + auditCon);
       await Object.assign(result, temp.recordset[0]);
       temp = await pool
         .request()
-        .input("dept_id", sql.VarChar, dept_id)
+        .input("dept_id", sql.VarChar, `${dept_id}%`)
         .query("SELECT COUNT(*) AS usrPermit FROM dmis_tasks" + usrPermitCon);
       await Object.assign(result, temp.recordset[0]);
       temp = await pool
         .request()
         .input("informer_id", sql.VarChar, personnel_id)
-        .input("dept_id", sql.VarChar, dept_id)
+        .input("dept_id", sql.VarChar, `${dept_id}%`)
         .query(
           "SELECT COUNT(*) AS informerTask FROM dmis_tasks" + informerTaskCon
         );
