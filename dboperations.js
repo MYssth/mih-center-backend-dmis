@@ -1230,7 +1230,7 @@ async function countTask(personnel_id, level_id, view_id, showcase) {
 const permitTaskHITCon =
   " WHERE dmis_tasks.level_id = 'DMIS_IT'" +
   " AND (NULLIF(dmis_tasks.status_id_request, '') IS NOT NULL OR dmis_tasks.status_id_request = 0)" +
-  " AND (dmis_tasks.category_id <> 16 OR (dmis_tasks.category_id = 16 AND NULLIF(dmis_tasks.user_permit_id, '') IS NOT NULL)) ";
+  " AND ((dmis_tasks.category_id <> 16 OR dmis_tasks.category_id IS NULL) OR (dmis_tasks.category_id = 16 AND NULLIF(dmis_tasks.user_permit_id, '') IS NOT NULL)) ";
 
 const permitTaskENVCon =
   " WHERE (dmis_tasks.level_id = 'DMIS_MT' OR dmis_tasks.level_id = 'DMIS_MER' )" +
