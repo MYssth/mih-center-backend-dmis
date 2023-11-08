@@ -1559,7 +1559,7 @@ async function getNoti(personnel_id, level_id, view_id) {
       await Object.assign(result, temp.recordset[0]);
     }
 
-    console.log("getAuditTaskList complete");
+    console.log("getNoti complete");
     console.log("====================");
     return result;
   } catch (error) {
