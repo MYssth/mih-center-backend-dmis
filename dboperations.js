@@ -838,6 +838,9 @@ async function processTask(task) {
     } else if (task.taskCase === "reject") {
       console.log("reject task");
       let queryText = "UPDATE dmis_tasks SET " + "status_id_request = NULL ";
+      if (task.category_id === 16) {
+        queryText += ", category_id = NULL ";
+      }
       await pool
         .request()
         .input("task_id", sql.VarChar, task.task_id)
@@ -1030,10 +1033,7 @@ async function getOperator(level_id) {
         }
       });
     let levelCheck = "lv_id = @level_id";
-    if (
-      level_id === "DMIS_MT" ||
-      level_id === "DMIS_MER"
-    ) {
+    if (level_id === "DMIS_MT" || level_id === "DMIS_MER") {
       levelCheck = "lv_id = @level_id OR lv_id = 'DMIS_ENV'";
     } else if (level_id === "DMIS_ENV") {
       levelCheck =
@@ -1313,7 +1313,6 @@ async function getUserPermitTaskList(personnel_id, view_id) {
     } else if (view_id === "HMGR") {
       dept_id = await resData.fld_id;
     }
-
     if (view_id === "ALL") {
       console.log("get all activate");
       result = await pool.request().query(TaskListQueryText + usrPermitALLCon);
